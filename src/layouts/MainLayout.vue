@@ -45,6 +45,11 @@
           <el-badge v-if="warningCount > 0" :value="warningCount" class="warning-badge" />
         </el-menu-item>
 
+        <el-menu-item index="/reworks">
+          <el-icon><RefreshLeft /></el-icon>
+          <template #title>返工管理</template>
+        </el-menu-item>
+
         <el-menu-item index="/delivery-archives">
           <el-icon><Files /></el-icon>
           <template #title>交付归档管理</template>
@@ -122,7 +127,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
-  Cpu, DataLine, Setting, Tickets, Warning, User, Files,
+  Cpu, DataLine, Setting, Tickets, Warning, User, Files, RefreshLeft,
   Expand, Fold, RefreshRight, Bell, UserFilled,
   CaretBottom, SwitchButton
 } from '@element-plus/icons-vue'

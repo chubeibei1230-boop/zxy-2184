@@ -14,6 +14,8 @@
             <el-option label="气泡集中" value="bubble_concentration" />
             <el-option label="质检超期" value="overdue_inspection" />
             <el-option label="返工无结论" value="rework_no_conclusion" />
+            <el-option label="返工超期" value="rework_overdue" />
+            <el-option label="多次返工" value="multiple_reworks" />
             <el-option label="通过率下降" value="pass_rate_drop" />
             <el-option label="待复核超期" value="unreviewed_delivery" />
           </el-select>
@@ -120,6 +122,8 @@ const getTypeTagType = (type: string) => {
     bubble_concentration: 'danger',
     overdue_inspection: 'warning',
     rework_no_conclusion: 'danger',
+    rework_overdue: 'danger',
+    multiple_reworks: 'warning',
     pass_rate_drop: 'warning',
     unreviewed_delivery: 'danger'
   }

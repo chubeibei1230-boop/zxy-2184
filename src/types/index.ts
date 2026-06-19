@@ -157,6 +157,7 @@ export interface BatchDetail extends Batch {
   inspection_records: InspectionRecord[]
   delivery_review?: DeliveryReview | null
   delivery_archive?: DeliveryArchive | null
+  rework_records: ReworkRecord[]
 }
 
 export interface ProcessRecord {
@@ -212,6 +213,9 @@ export interface DashboardSummary {
   paused: number
   pending_delivery_review: number
   warning_count: number
+  pending_rework: number
+  overdue_rework: number
+  waiting_rework_inspection: number
 }
 
 export interface PendingDeliveryReviewItem {
@@ -297,12 +301,61 @@ export const REVIEW_STATUS_COLOR_MAP: Record<ReviewStatus, string> = {
   reviewed: '#10b981'
 }
 
+export type ReworkStatus = 'pending' | 'processing' | 'waiting_inspection' | 'completed' | 'cancelled'
+
+export interface ReworkRecord {
+  id: number
+  batch_id: number
+  rework_no: number
+  initiator_id: number
+  responsible_id: number
+  status: ReworkStatus
+  rework_reason: string
+  handling_instruction: string | null
+  expected_finish_time: string | null
+  actual_finish_time: string | null
+  rework_result: string | null
+  created_at: string
+  updated_at: string
+  initiator?: User
+  responsible?: User
+  batch_code?: string
+  style_name?: string
+  status_name?: string
+  status_color?: string
+}
+
+export interface ReworkStats {
+  pending_rework: number
+  overdue_rework: number
+  waiting_inspection: number
+  total_rework: number
+}
+
+export const REWORK_STATUS_MAP: Record<ReworkStatus, string> = {
+  pending: '待处理',
+  processing: '处理中',
+  waiting_inspection: '待复检',
+  completed: '已完成',
+  cancelled: '已取消'
+}
+
+export const REWORK_STATUS_COLOR_MAP: Record<ReworkStatus, string> = {
+  pending: '#f59e0b',
+  processing: '#3b82f6',
+  waiting_inspection: '#8b5cf6',
+  completed: '#10b981',
+  cancelled: '#6b7280'
+}
+
 export const WARNING_TYPE_MAP: Record<string, string> = {
   bubble_concentration: '气泡集中',
   overdue_inspection: '质检超期',
   rework_no_conclusion: '返工无结论',
   pass_rate_drop: '通过率下降',
-  unreviewed_delivery: '待复核超期'
+  unreviewed_delivery: '待复核超期',
+  rework_overdue: '返工超期',
+  multiple_reworks: '多次返工'
 }
 
 export const WARNING_LEVEL_MAP: Record<string, string> = {

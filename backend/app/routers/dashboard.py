@@ -82,6 +82,20 @@ def get_summary(
         models.Batch.review_status == "pending_review"
     ).count()
 
+    from datetime import datetime
+    now = datetime.now()
+    pending_rework_count = db.query(models.ReworkRecord).filter(
+        models.ReworkRecord.status.in_(["pending", "processing"])
+    ).count()
+    overdue_rework_count = db.query(models.ReworkRecord).filter(
+        models.ReworkRecord.status.in_(["pending", "processing"]),
+        models.ReworkRecord.expected_finish_time.isnot(None),
+        models.ReworkRecord.expected_finish_time < now
+    ).count()
+    waiting_rework_inspection_count = db.query(models.ReworkRecord).filter(
+        models.ReworkRecord.status == "waiting_inspection"
+    ).count()
+
     summary = schemas.DashboardSummary(
         total_batches=total,
         pending_pour=status_counts.get("pending_pour", 0),
@@ -92,7 +106,10 @@ def get_summary(
         delivered=status_counts.get("delivered", 0),
         paused=status_counts.get("paused", 0),
         pending_delivery_review=pending_review_count,
-        warning_count=len(warnings)
+        warning_count=len(warnings),
+        pending_rework=pending_rework_count,
+        overdue_rework=overdue_rework_count,
+        waiting_rework_inspection=waiting_rework_inspection_count
     )
 
     return schemas.ApiResponse(data=summary.model_dump())

@@ -150,6 +150,45 @@
         </div>
       </el-col>
       <el-col :span="4">
+        <div class="stat-card" @click="goToReworks('pending')">
+          <div class="stat-content">
+            <div>
+              <div class="stat-value" style="color: #f59e0b;">{{ summary?.pending_rework || 0 }}</div>
+              <div class="stat-label">待处理返工</div>
+            </div>
+            <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+              <el-icon><RefreshLeft /></el-icon>
+            </div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="4">
+        <div class="stat-card" @click="goToReworks('overdue')">
+          <div class="stat-content">
+            <div>
+              <div class="stat-value" style="color: #ef4444;">{{ summary?.overdue_rework || 0 }}</div>
+              <div class="stat-label">超期返工</div>
+            </div>
+            <div class="stat-icon" style="background: #fee2e2; color: #dc2626;">
+              <el-icon><Warning /></el-icon>
+            </div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="4">
+        <div class="stat-card" @click="goToReworks('waiting_inspection')">
+          <div class="stat-content">
+            <div>
+              <div class="stat-value" style="color: #8b5cf6;">{{ summary?.waiting_rework_inspection || 0 }}</div>
+              <div class="stat-label">待复检</div>
+            </div>
+            <div class="stat-icon" style="background: #ede9fe; color: #7c3aed;">
+              <el-icon><Search /></el-icon>
+            </div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="4">
         <div class="stat-card" @click="goToWarnings">
           <div class="stat-content">
             <div>
@@ -307,7 +346,7 @@ import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import {
   Tickets, Timer, Cpu, Search, CircleCheck, Warning,
-  RefreshRight, DocumentChecked, Files
+  RefreshRight, DocumentChecked, Files, RefreshLeft
 } from '@element-plus/icons-vue'
 import { dashboardApi, warningApi, styleApi, userApi } from '@/api'
 import {
@@ -571,6 +610,14 @@ const goToDeliveryReviews = () => {
 
 const goToWarnings = () => {
   router.push('/warnings')
+}
+
+const goToReworks = (status?: string) => {
+  const query: any = {}
+  if (status && status !== 'overdue') {
+    query.status = status
+  }
+  router.push({ path: '/reworks', query })
 }
 
 const viewBatch = (id: number) => {

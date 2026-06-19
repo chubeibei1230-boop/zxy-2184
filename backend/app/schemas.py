@@ -292,6 +292,7 @@ class BatchDetail(Batch):
     inspection_records: List["InspectionRecord"] = []
     delivery_review: Optional[DeliveryReviewWithReviewer] = None
     delivery_archive: Optional[DeliveryArchiveWithArchiver] = None
+    rework_records: List["ReworkRecordWithDetails"] = []
 
 
 class ProcessRecordBase(BaseModel):
@@ -409,6 +410,9 @@ class DashboardSummary(BaseModel):
     paused: int
     pending_delivery_review: int
     warning_count: int
+    pending_rework: int
+    overdue_rework: int
+    waiting_rework_inspection: int
 
 
 class BatchProgressItem(BaseModel):
@@ -447,3 +451,56 @@ class PendingDeliveryReviewItem(BaseModel):
     quantity: int
     actual_end_date: Optional[datetime] = None
     days_pending: int
+
+
+class ReworkRecordBase(BaseModel):
+    batch_id: int
+    rework_reason: str
+    handling_instruction: Optional[str] = None
+    responsible_id: int
+    expected_finish_time: Optional[datetime] = None
+
+
+class ReworkRecordCreate(ReworkRecordBase):
+    pass
+
+
+class ReworkRecordStart(BaseModel):
+    pass
+
+
+class ReworkRecordComplete(BaseModel):
+    actual_finish_time: datetime
+    rework_result: str
+
+
+class ReworkRecord(BaseModel):
+    id: int
+    batch_id: int
+    rework_no: int
+    initiator_id: int
+    responsible_id: int
+    status: str
+    rework_reason: str
+    handling_instruction: Optional[str] = None
+    expected_finish_time: Optional[datetime] = None
+    actual_finish_time: Optional[datetime] = None
+    rework_result: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ReworkRecordWithDetails(ReworkRecord):
+    initiator: User
+    responsible: User
+    batch_code: Optional[str] = None
+    style_name: Optional[str] = None
+    status_name: Optional[str] = None
+
+
+class ReworkStats(BaseModel):
+    pending_rework: int
+    overdue_rework: int
+    waiting_inspection: int
+    total_rework: int

@@ -5,7 +5,8 @@ import type {
   Batch, BatchDetail, ProcessRecord, InspectionRecord,
   WarningItem, DashboardSummary, BatchProgressItem,
   StationLoadItem, PendingInspectionItem, DeliveryReview,
-  PendingDeliveryReviewItem, DeliveryArchive, DeliveryArchiveItem
+  PendingDeliveryReviewItem, DeliveryArchive, DeliveryArchiveItem,
+  ReworkRecord, ReworkStats
 } from '@/types'
 
 export const authApi = {
@@ -144,5 +145,28 @@ export const warningApi = {
   getPassRateDrop: () =>
     request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/pass-rate-drop'),
   getUnreviewedDelivery: () =>
-    request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/unreviewed-delivery')
+    request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/unreviewed-delivery'),
+  getReworkOverdue: () =>
+    request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/rework-overdue'),
+  getMultipleReworks: () =>
+    request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/multiple-reworks')
+}
+
+export const reworkApi = {
+  getList: (params?: any) =>
+    request.get<any, ApiResponse<{ items: ReworkRecord[] }>>('/reworks', { params }),
+  getStats: () =>
+    request.get<any, ApiResponse<ReworkStats>>('/reworks/stats'),
+  getDetail: (id: number) =>
+    request.get<any, ApiResponse<ReworkRecord>>(`/reworks/${id}`),
+  create: (data: any) =>
+    request.post<any, ApiResponse<ReworkRecord>>('/reworks', data),
+  start: (id: number) =>
+    request.put<any, ApiResponse>(`/reworks/${id}/start`),
+  submitInspection: (id: number, data: any) =>
+    request.put<any, ApiResponse>(`/reworks/${id}/submit-inspection`, data),
+  complete: (id: number) =>
+    request.put<any, ApiResponse>(`/reworks/${id}/complete`),
+  cancel: (id: number) =>
+    request.put<any, ApiResponse>(`/reworks/${id}/cancel`)
 }

@@ -137,6 +137,14 @@
           返工完成
         </el-button>
         <el-button
+          v-if="canInitiateRework"
+          type="danger"
+          :icon="CircleClose"
+          @click="openInitiateReworkDialog"
+        >
+          发起返工
+        </el-button>
+        <el-button
           v-if="canInspect"
           type="success"
           :icon="CircleCheck"
@@ -192,6 +200,67 @@
           </el-timeline-item>
         </el-timeline>
         <el-empty v-else description="暂无工艺记录" />
+      </div>
+
+      <div class="card rework-timeline-card">
+        <div class="card-header">返工管理时间线</div>
+        <div v-if="sortedReworkRecords.length > 0" class="rework-timeline-container">
+          <el-timeline>
+            <el-timeline-item
+              v-for="rework in sortedReworkRecords"
+              :key="rework.id"
+              :timestamp="formatDateTime(rework.created_at)"
+              type="danger"
+              color="#ef4444"
+            >
+              <div class="rework-item">
+                <div class="rework-header">
+                  <span class="rework-title">第 {{ rework.rework_no }} 次返工</span>
+                  <span
+                    class="status-tag"
+                    :style="{
+                      backgroundColor: (rework.status_color || REWORK_STATUS_COLOR_MAP[rework.status]) + '20',
+                      color: rework.status_color || REWORK_STATUS_COLOR_MAP[rework.status]
+                    }"
+                  >
+                    {{ rework.status_name || REWORK_STATUS_MAP[rework.status] }}
+                  </span>
+                </div>
+                <div class="rework-info-grid">
+                  <div class="info-item">
+                    <span class="label">发起人：</span>
+                    <span class="value">{{ rework.initiator?.name || '-' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">责任人：</span>
+                    <span class="value">{{ rework.responsible?.name || '-' }}</span>
+                  </div>
+                  <div class="info-item full-width">
+                    <span class="label">返工原因：</span>
+                    <span class="value">{{ rework.rework_reason || '-' }}</span>
+                  </div>
+                  <div class="info-item full-width" v-if="rework.handling_instruction">
+                    <span class="label">处理说明：</span>
+                    <span class="value">{{ rework.handling_instruction }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">预计完成：</span>
+                    <span class="value">{{ rework.expected_finish_time ? formatDateTime(rework.expected_finish_time) : '-' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">实际完成：</span>
+                    <span class="value">{{ rework.actual_finish_time ? formatDateTime(rework.actual_finish_time) : '-' }}</span>
+                  </div>
+                  <div class="info-item full-width" v-if="rework.rework_result">
+                    <span class="label">返工结果：</span>
+                    <span class="value">{{ rework.rework_result }}</span>
+                  </div>
+                </div>
+              </div>
+            </el-timeline-item>
+          </el-timeline>
+        </div>
+        <el-empty v-else description="暂无返工记录" />
       </div>
 
       <div class="card inspection-card">
@@ -712,6 +781,55 @@
         <el-button type="primary" @click="handleDeliveryArchive" :loading="submitting">确定归档</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="initiateReworkDialogVisible"
+      title="发起返工"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="initiateReworkFormRef"
+        :model="initiateReworkForm"
+        :rules="initiateReworkRules"
+        label-width="110px"
+      >
+        <el-form-item label="返工原因" prop="rework_reason">
+          <el-input
+            v-model="initiateReworkForm.rework_reason"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入返工原因"
+          />
+        </el-form-item>
+        <el-form-item label="处理说明" prop="handling_instruction">
+          <el-input
+            v-model="initiateReworkForm.handling_instruction"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入处理说明"
+          />
+        </el-form-item>
+        <el-form-item label="责任人" prop="responsible_id">
+          <el-select v-model="initiateReworkForm.responsible_id" placeholder="请选择责任人" style="width: 100%;">
+            <el-option v-for="user in technicianList" :key="user.id" :label="user.name" :value="user.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="预计完成时间" prop="expected_finish_time">
+          <el-date-picker
+            v-model="initiateReworkForm.expected_finish_time"
+            type="datetime"
+            placeholder="选择时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%;"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="initiateReworkDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleInitiateRework" :loading="submitting">确定发起</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -721,13 +839,14 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import {
   ArrowLeft, RefreshRight, Watermelon, Box, Crop,
-  Warning, RefreshLeft, CircleCheck, DocumentChecked, Files
+  Warning, RefreshLeft, CircleCheck, DocumentChecked, Files, CircleClose
 } from '@element-plus/icons-vue'
-import { batchApi } from '@/api'
+import { batchApi, reworkApi, userApi } from '@/api'
 import {
   STATUS_MAP, STATUS_COLOR_MAP,
   REVIEW_STATUS_MAP, REVIEW_STATUS_COLOR_MAP,
-  type BatchDetail, type ProcessRecord
+  REWORK_STATUS_MAP, REWORK_STATUS_COLOR_MAP,
+  type BatchDetail, type ProcessRecord, type ReworkRecord
 } from '@/types'
 import { useUserStore } from '@/stores/user'
 
@@ -748,6 +867,7 @@ const reworkDialogVisible = ref(false)
 const inspectDialogVisible = ref(false)
 const deliveryReviewDialogVisible = ref(false)
 const deliveryArchiveDialogVisible = ref(false)
+const initiateReworkDialogVisible = ref(false)
 
 const pourFormRef = ref<FormInstance>()
 const demoldFormRef = ref<FormInstance>()
@@ -757,6 +877,7 @@ const reworkFormRef = ref<FormInstance>()
 const inspectFormRef = ref<FormInstance>()
 const deliveryReviewFormRef = ref<FormInstance>()
 const deliveryArchiveFormRef = ref<FormInstance>()
+const initiateReworkFormRef = ref<FormInstance>()
 
 const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
 
@@ -816,6 +937,15 @@ const deliveryArchiveForm = reactive({
   receiver: '',
   quality_conclusion: '',
   delivery_remark: ''
+})
+
+const technicianList = ref<any[]>([])
+
+const initiateReworkForm = reactive({
+  rework_reason: '',
+  handling_instruction: '',
+  responsible_id: null as number | null,
+  expected_finish_time: ''
 })
 
 const pourRules: FormRules = {
@@ -893,6 +1023,11 @@ const deliveryArchiveRules: FormRules = {
   quality_conclusion: [{ required: true, message: '请输入关联质检结论', trigger: 'blur' }]
 }
 
+const initiateReworkRules: FormRules = {
+  rework_reason: [{ required: true, message: '请输入返工原因', trigger: 'blur' }],
+  responsible_id: [{ required: true, message: '请选择责任人', trigger: 'change' }]
+}
+
 const canPour = computed(() => {
   if (!batchDetail.value) return false
   const status = batchDetail.value.status
@@ -952,10 +1087,24 @@ const canDeliveryArchive = computed(() => {
   return isInspector && status === 'deliverable' && !hasArchive && reviewPassed
 })
 
+const canInitiateRework = computed(() => {
+  if (!batchDetail.value) return false
+  const status = batchDetail.value.status
+  const isTechnician = userStore.userRole === 'technician' || userStore.userRole === 'admin'
+  return isTechnician && (status === 'pending_inspect' || status === 'reworking')
+})
+
 const sortedProcessRecords = computed(() => {
   if (!batchDetail.value?.process_records) return []
   return [...batchDetail.value.process_records].sort(
     (a, b) => new Date(b.record_time).getTime() - new Date(a.record_time).getTime()
+  )
+})
+
+const sortedReworkRecords = computed(() => {
+  if (!batchDetail.value?.rework_records) return []
+  return [...batchDetail.value.rework_records].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )
 })
 
@@ -1261,7 +1410,52 @@ const handleDeliveryArchive = async () => {
   })
 }
 
+const loadTechnicians = async () => {
+  try {
+    const res = await userApi.getList()
+    technicianList.value = res.data.items.filter((u: any) => u.role === 'technician')
+  } catch (e) {
+    console.error('Load technicians failed', e)
+  }
+}
+
+const openInitiateReworkDialog = () => {
+  initiateReworkForm.rework_reason = ''
+  initiateReworkForm.handling_instruction = ''
+  initiateReworkForm.responsible_id = userStore.user?.role === 'technician' ? userStore.user.id : null
+  initiateReworkForm.expected_finish_time = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  initiateReworkFormRef.value?.resetFields()
+  initiateReworkDialogVisible.value = true
+}
+
+const handleInitiateRework = async () => {
+  if (!initiateReworkFormRef.value) return
+  await initiateReworkFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    submitting.value = true
+    try {
+      const data = {
+        batch_id: batchId.value,
+        rework_reason: initiateReworkForm.rework_reason,
+        handling_instruction: initiateReworkForm.handling_instruction,
+        responsible_id: initiateReworkForm.responsible_id,
+        expected_finish_time: initiateReworkForm.expected_finish_time
+      }
+      await reworkApi.create(data)
+      ElMessage.success('返工记录已创建')
+      initiateReworkDialogVisible.value = false
+      loadDetail()
+    } catch (e: any) {
+      console.error('Initiate rework failed', e)
+      ElMessage.error(e.response?.data?.message || '发起返工失败')
+    } finally {
+      submitting.value = false
+    }
+  })
+}
+
 onMounted(() => {
+  loadTechnicians()
   loadDetail()
 })
 </script>
@@ -1375,5 +1569,51 @@ onMounted(() => {
 
 .archive-empty {
   padding: 20px 0;
+}
+
+.rework-item {
+  padding: 8px 0;
+}
+
+.rework-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.rework-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.rework-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.rework-info-grid .info-item {
+  display: flex;
+  align-items: flex-start;
+  font-size: 13px;
+}
+
+.rework-info-grid .info-item.full-width {
+  grid-column: span 2;
+}
+
+.rework-info-grid .info-item .label {
+  color: #6b7280;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.rework-info-grid .info-item .value {
+  color: #374151;
+  font-weight: 500;
+  flex: 1;
+  word-break: break-all;
 }
 </style>

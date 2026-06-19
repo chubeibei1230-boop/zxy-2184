@@ -36,6 +36,13 @@ def record_inspection(
         batch.status = "deliverable"
         batch.actual_end_date = record_in.inspect_time
         batch.review_status = "pending_review"
+
+        waiting_rework = db.query(models.ReworkRecord).filter(
+            models.ReworkRecord.batch_id == batch_id,
+            models.ReworkRecord.status == "waiting_inspection"
+        ).order_by(models.ReworkRecord.created_at.desc()).first()
+        if waiting_rework:
+            waiting_rework.status = "completed"
     else:
         batch.status = "reworking"
         batch.review_status = "not_required"

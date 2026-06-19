@@ -17,12 +17,16 @@ def get_all_warnings_internal(db: Session) -> list:
     rework_warnings = check_rework_no_conclusion(db)
     pass_rate_warnings = check_pass_rate_drop(db)
     unreviewed_warnings = check_unreviewed_delivery(db)
+    rework_overdue_warnings = check_rework_overdue(db)
+    multiple_rework_warnings = check_multiple_reworks(db)
 
     warnings.extend(bubble_warnings)
     warnings.extend(overdue_warnings)
     warnings.extend(rework_warnings)
     warnings.extend(pass_rate_warnings)
     warnings.extend(unreviewed_warnings)
+    warnings.extend(rework_overdue_warnings)
+    warnings.extend(multiple_rework_warnings)
 
     return warnings
 
@@ -232,4 +236,72 @@ def get_pass_rate_drop_warnings(db: Session = Depends(get_db)):
 @router.get("/unreviewed-delivery", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
 def get_unreviewed_delivery_warnings(db: Session = Depends(get_db)):
     warnings = check_unreviewed_delivery(db)
+    return schemas.ApiResponse(data={"items": warnings})
+
+
+def check_rework_overdue(db: Session) -> list:
+    warnings = []
+    now = datetime.now()
+
+    overdue_reworks = db.query(models.ReworkRecord).filter(
+        models.ReworkRecord.status.in_(["pending", "processing"]),
+        models.ReworkRecord.expected_finish_time.isnot(None),
+        models.ReworkRecord.expected_finish_time < now
+    ).all()
+
+    for rework in overdue_reworks:
+        overdue_days = (now - rework.expected_finish_time).days
+        if overdue_days > 0:
+            warnings.append(schemas.WarningItem(
+                type="rework_overdue",
+                level="high" if overdue_days >= 3 else "medium",
+                title=f"批次【{rework.batch.code}】返工超期",
+                content=f"第 {rework.rework_no} 次返工已超期 {overdue_days} 天，责任人：{rework.responsible.name}",
+                related_id=rework.batch_id,
+                related_type="batch",
+                created_at=datetime.now()
+            ).model_dump())
+
+    return warnings
+
+
+def check_multiple_reworks(db: Session) -> list:
+    warnings = []
+    threshold = 2
+
+    results = db.query(
+        models.ReworkRecord.batch_id,
+        models.Batch.code.label("batch_code"),
+        func.count(models.ReworkRecord.id).label("rework_count")
+    ).join(
+        models.Batch, models.ReworkRecord.batch_id == models.Batch.id
+    ).group_by(
+        models.ReworkRecord.batch_id, models.Batch.code
+    ).having(
+        func.count(models.ReworkRecord.id) >= threshold
+    ).all()
+
+    for r in results:
+        warnings.append(schemas.WarningItem(
+            type="multiple_reworks",
+            level="high" if r.rework_count >= 3 else "medium",
+            title=f"批次【{r.batch_code}】多次返工",
+            content=f"该批次已返工 {r.rework_count} 次，超过阈值 {threshold} 次",
+            related_id=r.batch_id,
+            related_type="batch",
+            created_at=datetime.now()
+        ).model_dump())
+
+    return warnings
+
+
+@router.get("/rework-overdue", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
+def get_rework_overdue_warnings(db: Session = Depends(get_db)):
+    warnings = check_rework_overdue(db)
+    return schemas.ApiResponse(data={"items": warnings})
+
+
+@router.get("/multiple-reworks", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
+def get_multiple_reworks_warnings(db: Session = Depends(get_db)):
+    warnings = check_multiple_reworks(db)
     return schemas.ApiResponse(data={"items": warnings})

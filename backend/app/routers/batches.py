@@ -133,6 +133,17 @@ def get_batch_detail(batch_id: int, db: Session = Depends(get_db)):
         da_data = schemas.DeliveryArchiveWithArchiver.model_validate(batch.delivery_archive).model_dump()
         batch_data["delivery_archive"] = da_data
 
+    rework_records = []
+    from .reworks import REWORK_STATUS_MAP, REWORK_STATUS_COLOR_MAP
+    for rr in batch.rework_records:
+        rr_data = schemas.ReworkRecordWithDetails.model_validate(rr).model_dump()
+        rr_data["initiator"] = schemas.User.model_validate(rr.initiator).model_dump()
+        rr_data["responsible"] = schemas.User.model_validate(rr.responsible).model_dump()
+        rr_data["status_name"] = REWORK_STATUS_MAP.get(rr.status, rr.status)
+        rr_data["status_color"] = REWORK_STATUS_COLOR_MAP.get(rr.status, "#6b7280")
+        rework_records.append(rr_data)
+    batch_data["rework_records"] = rework_records
+
     return schemas.ApiResponse(data=batch_data)
 
 

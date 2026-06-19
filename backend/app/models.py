@@ -137,6 +137,7 @@ class Batch(Base):
     inspection_records = relationship("InspectionRecord", back_populates="batch", cascade="all, delete-orphan")
     delivery_review = relationship("DeliveryReview", back_populates="batch", uselist=False, cascade="all, delete-orphan")
     delivery_archive = relationship("DeliveryArchive", back_populates="batch", uselist=False, cascade="all, delete-orphan")
+    rework_records = relationship("ReworkRecord", back_populates="batch", cascade="all, delete-orphan")
 
 
 class ProcessRecord(Base):
@@ -215,3 +216,29 @@ class DeliveryArchive(Base):
 
     batch = relationship("Batch", back_populates="delivery_archive")
     archiver = relationship("User")
+
+
+class ReworkRecord(Base):
+    __tablename__ = "rework_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("batches.id"), nullable=False)
+    rework_no = Column(Integer, nullable=False, default=1)
+    initiator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    responsible_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    rework_reason = Column(Text, nullable=False)
+    handling_instruction = Column(Text)
+    expected_finish_time = Column(DateTime)
+    actual_finish_time = Column(DateTime)
+    rework_result = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'processing', 'waiting_inspection', 'completed', 'cancelled')"),
+    )
+
+    batch = relationship("Batch", back_populates="rework_records")
+    initiator = relationship("User", foreign_keys=[initiator_id])
+    responsible = relationship("User", foreign_keys=[responsible_id])

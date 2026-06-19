@@ -43,6 +43,33 @@ def migrate():
             else:
                 print("delivery_archives 表已存在")
 
+            result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='rework_records'"))
+            if result.fetchone() is None:
+                conn.execute(text("""
+                    CREATE TABLE rework_records (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        batch_id INTEGER NOT NULL,
+                        rework_no INTEGER NOT NULL DEFAULT 1,
+                        initiator_id INTEGER NOT NULL,
+                        responsible_id INTEGER NOT NULL,
+                        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                        rework_reason TEXT NOT NULL,
+                        handling_instruction TEXT,
+                        expected_finish_time DATETIME,
+                        actual_finish_time DATETIME,
+                        rework_result TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (batch_id) REFERENCES batches (id),
+                        FOREIGN KEY (initiator_id) REFERENCES users (id),
+                        FOREIGN KEY (responsible_id) REFERENCES users (id)
+                    )
+                """))
+                conn.commit()
+                print("已创建 rework_records 表")
+            else:
+                print("rework_records 表已存在")
+
         deliverable_batches = db.query(models.Batch).filter(
             models.Batch.status == "deliverable",
             models.Batch.review_status == "not_required"
