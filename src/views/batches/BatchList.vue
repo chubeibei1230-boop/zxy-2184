@@ -20,6 +20,11 @@
             <el-option v-for="(label, value) in STATUS_MAP" :key="value" :label="label" :value="value" />
           </el-select>
         </el-form-item>
+        <el-form-item label="复核状态">
+          <el-select v-model="filterForm.review_status" placeholder="全部复核状态" clearable @change="loadData">
+            <el-option v-for="(label, value) in REVIEW_STATUS_MAP" :key="value" :label="label" :value="value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="工艺员">
           <el-select v-model="filterForm.technician_id" placeholder="全部工艺员" clearable @change="loadData">
             <el-option v-for="user in technicians" :key="user.id" :label="user.name" :value="user.id" />
@@ -227,6 +232,7 @@ const technicians = ref<User[]>([])
 const filterForm = reactive({
   style_id: null as number | null,
   status: null as string | null,
+  review_status: null as string | null,
   technician_id: null as number | null,
   date_range: null as string[] | null
 })
@@ -320,6 +326,7 @@ const loadData = async () => {
     const params: any = {}
     if (filterForm.style_id) params.style_id = filterForm.style_id
     if (filterForm.status) params.status = filterForm.status
+    if (filterForm.review_status) params.review_status = filterForm.review_status
     if (filterForm.technician_id) params.technician_id = filterForm.technician_id
     if (filterForm.date_range?.length === 2) {
       params.start_date = filterForm.date_range[0]
@@ -339,6 +346,7 @@ const loadData = async () => {
 const resetFilter = () => {
   filterForm.style_id = null
   filterForm.status = null
+  filterForm.review_status = null
   filterForm.technician_id = null
   filterForm.date_range = null
   loadData()
@@ -390,6 +398,9 @@ const viewDetail = (id: number) => {
 onMounted(() => {
   if (route.query.status) {
     filterForm.status = route.query.status as string
+  }
+  if (route.query.review_status) {
+    filterForm.review_status = route.query.review_status as string
   }
   if (route.query.style_id) {
     filterForm.style_id = Number(route.query.style_id)

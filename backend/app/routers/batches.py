@@ -46,6 +46,7 @@ def check_mold_availability(db: Session, mold_id: int, start_date: date, end_dat
 def get_batches(
     style_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
+    review_status: Optional[str] = Query(None),
     technician_id: Optional[int] = Query(None),
     inspector_id: Optional[int] = Query(None),
     start_date: Optional[date] = Query(None),
@@ -59,6 +60,8 @@ def get_batches(
         query = query.filter(models.Batch.style_id == style_id)
     if status:
         query = query.filter(models.Batch.status == status)
+    if review_status:
+        query = query.filter(models.Batch.review_status == review_status)
     if technician_id:
         query = query.filter(models.Batch.technician_id == technician_id)
     if inspector_id:

@@ -122,7 +122,7 @@
           </div>
         </div>
       </el-col>
-      <el-col :span="4">
+      <el-col :span="4" v-if="isInspector">
         <div class="stat-card" @click="goToDeliveryReviews">
           <div class="stat-content">
             <div>
@@ -235,12 +235,12 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="20" style="margin-top: 20px;">
+    <el-row :gutter="20" style="margin-top: 20px;" v-if="isInspector">
       <el-col :span="24">
         <div class="card">
           <div class="card-header">
             <span>待交付复核列表</span>
-            <el-button type="primary" link @click="goToBatches('deliverable')" style="float: right;">
+            <el-button type="primary" link @click="goToDeliveryReviews" style="float: right;">
               查看全部
             </el-button>
           </div>
@@ -288,7 +288,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import {
@@ -302,8 +302,14 @@ import {
   type BatchProgressItem, type StationLoadItem, type Style, type User,
   type PendingDeliveryReviewItem
 } from '@/types'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
+
+const isInspector = computed(() => {
+  return userStore.userRole === 'inspector' || userStore.userRole === 'admin'
+})
 
 const loading = ref(false)
 const progressChartRef = ref<HTMLElement>()
@@ -377,20 +383,32 @@ const loadData = async () => {
     const progressParams = { ...params }
     delete progressParams.status
 
-    const [summaryRes, progressRes, stationRes, pendingRes, reviewRes, warningRes] = await Promise.all([
+    const apiPromises: Promise<any>[] = [
       dashboardApi.getSummary(params),
       dashboardApi.getBatchProgress(progressParams),
       dashboardApi.getStationLoad(params),
       dashboardApi.getPendingInspections(params),
-      dashboardApi.getPendingDeliveryReviews(params),
       warningApi.getList()
-    ])
+    ]
+    if (isInspector.value) {
+      apiPromises.splice(4, 0, dashboardApi.getPendingDeliveryReviews(params))
+    }
+
+    const results = await Promise.all(apiPromises)
+    const summaryRes = results[0]
+    const progressRes = results[1]
+    const stationRes = results[2]
+    const pendingRes = results[3]
+    const reviewRes = isInspector.value ? results[4] : null
+    const warningRes = isInspector.value ? results[5] : results[4]
 
     summary.value = summaryRes.data
     batchProgress.value = progressRes.data.items || []
     stationLoad.value = stationRes.data.items || []
     pendingInspections.value = pendingRes.data.items || []
-    pendingDeliveryReviews.value = reviewRes.data.items || []
+    if (reviewRes) {
+      pendingDeliveryReviews.value = reviewRes.data.items || []
+    }
     warnings.value = (warningRes.data.items || []).slice(0, 5)
 
     await nextTick()
@@ -533,7 +551,7 @@ const goToBatches = (status?: string) => {
 const goToDeliveryReviews = () => {
   router.push({
     path: '/batches',
-    query: { status: 'deliverable' }
+    query: { review_status: 'pending_review' }
   })
 }
 
