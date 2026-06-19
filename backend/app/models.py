@@ -123,7 +123,7 @@ class Batch(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        CheckConstraint("status IN ('pending_pour', 'molding', 'pending_inspect', 'reworking', 'deliverable', 'paused')"),
+        CheckConstraint("status IN ('pending_pour', 'molding', 'pending_inspect', 'reworking', 'deliverable', 'delivered', 'paused')"),
         CheckConstraint("review_status IN ('not_required', 'pending_review', 'reviewed')"),
     )
 
@@ -136,6 +136,7 @@ class Batch(Base):
     process_records = relationship("ProcessRecord", back_populates="batch", cascade="all, delete-orphan")
     inspection_records = relationship("InspectionRecord", back_populates="batch", cascade="all, delete-orphan")
     delivery_review = relationship("DeliveryReview", back_populates="batch", uselist=False, cascade="all, delete-orphan")
+    delivery_archive = relationship("DeliveryArchive", back_populates="batch", uselist=False, cascade="all, delete-orphan")
 
 
 class ProcessRecord(Base):
@@ -197,3 +198,20 @@ class DeliveryReview(Base):
 
     batch = relationship("Batch", back_populates="delivery_review")
     reviewer = relationship("User")
+
+
+class DeliveryArchive(Base):
+    __tablename__ = "delivery_archives"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("batches.id"), nullable=False, unique=True)
+    archiver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    delivery_time = Column(DateTime, nullable=False)
+    delivered_quantity = Column(Integer, nullable=False)
+    receiver = Column(String(100), nullable=False)
+    delivery_remark = Column(Text)
+    quality_conclusion = Column(String(500), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    batch = relationship("Batch", back_populates="delivery_archive")
+    archiver = relationship("User")

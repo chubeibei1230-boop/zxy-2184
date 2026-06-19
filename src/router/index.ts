@@ -77,6 +77,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '预警中心', icon: 'Warning' }
       },
       {
+        path: 'delivery-archives',
+        name: 'DeliveryArchives',
+        component: () => import('@/views/delivery-archives/DeliveryArchiveList.vue'),
+        meta: { title: '交付归档管理', icon: 'Files' }
+      },
+      {
         path: 'users',
         name: 'Users',
         component: () => import('@/views/Users.vue'),

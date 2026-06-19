@@ -30,6 +30,7 @@
             <el-option label="待质检" value="pending_inspect" />
             <el-option label="返工中" value="reworking" />
             <el-option label="可交付" value="deliverable" />
+            <el-option label="已交付" value="delivered" />
             <el-option label="暂停" value="paused" />
           </el-select>
         </el-form-item>
@@ -118,6 +119,19 @@
             </div>
             <div class="stat-icon" style="background: #d1fae5; color: #059669;">
               <el-icon><CircleCheck /></el-icon>
+            </div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="4">
+        <div class="stat-card" @click="filterByStatus('delivered')">
+          <div class="stat-content">
+            <div>
+              <div class="stat-value" style="color: #0ea5e9;">{{ summary?.delivered || 0 }}</div>
+              <div class="stat-label">已交付</div>
+            </div>
+            <div class="stat-icon" style="background: #e0f2fe; color: #0284c7;">
+              <el-icon><Files /></el-icon>
             </div>
           </div>
         </div>
@@ -293,7 +307,7 @@ import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import {
   Tickets, Timer, Cpu, Search, CircleCheck, Warning,
-  RefreshRight, DocumentChecked
+  RefreshRight, DocumentChecked, Files
 } from '@element-plus/icons-vue'
 import { dashboardApi, warningApi, styleApi, userApi } from '@/api'
 import {

@@ -5,7 +5,7 @@ import type {
   Batch, BatchDetail, ProcessRecord, InspectionRecord,
   WarningItem, DashboardSummary, BatchProgressItem,
   StationLoadItem, PendingInspectionItem, DeliveryReview,
-  PendingDeliveryReviewItem
+  PendingDeliveryReviewItem, DeliveryArchive, DeliveryArchiveItem
 } from '@/types'
 
 export const authApi = {
@@ -107,7 +107,16 @@ export const batchApi = {
   recordDeliveryReview: (id: number, data: any) =>
     request.post<any, ApiResponse>(`/batches/${id}/delivery-review`, data),
   getDeliveryReview: (id: number) =>
-    request.get<any, ApiResponse<DeliveryReview | null>>(`/batches/${id}/delivery-review`)
+    request.get<any, ApiResponse<DeliveryReview | null>>(`/batches/${id}/delivery-review`),
+  recordDeliveryArchive: (id: number, data: any) =>
+    request.post<any, ApiResponse>(`/batches/${id}/delivery-archive`, data),
+  getDeliveryArchive: (id: number) =>
+    request.get<any, ApiResponse<DeliveryArchive | null>>(`/batches/${id}/delivery-archive`)
+}
+
+export const deliveryArchiveApi = {
+  getList: (params?: any) =>
+    request.get<any, ApiResponse<{ items: DeliveryArchiveItem[] }>>('/delivery-archives', { params })
 }
 
 export const dashboardApi = {

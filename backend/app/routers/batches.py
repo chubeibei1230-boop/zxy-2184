@@ -14,7 +14,18 @@ STATUS_MAP = {
     "pending_inspect": "待质检",
     "reworking": "返工中",
     "deliverable": "可交付",
+    "delivered": "已交付",
     "paused": "暂停"
+}
+
+STATUS_COLOR_MAP = {
+    "pending_pour": "#f59e0b",
+    "molding": "#3b82f6",
+    "pending_inspect": "#8b5cf6",
+    "reworking": "#ef4444",
+    "deliverable": "#10b981",
+    "delivered": "#0ea5e9",
+    "paused": "#6b7280"
 }
 
 REVIEW_STATUS_MAP = {
@@ -33,7 +44,7 @@ REVIEW_STATUS_COLOR_MAP = {
 def check_mold_availability(db: Session, mold_id: int, start_date: date, end_date: date, exclude_batch_id: Optional[int] = None) -> bool:
     overlapping = db.query(models.Batch).filter(
         models.Batch.mold_id == mold_id,
-        models.Batch.status.notin_(["deliverable", "paused"]),
+        models.Batch.status.notin_(["deliverable", "delivered", "paused"]),
         models.Batch.planned_start_date <= end_date,
         models.Batch.planned_end_date >= start_date
     )
@@ -82,6 +93,7 @@ def get_batches(
         batch_data["technician_name"] = batch.technician.name
         batch_data["inspector_name"] = batch.inspector.name if batch.inspector else None
         batch_data["status_name"] = STATUS_MAP.get(batch.status, batch.status)
+        batch_data["status_color"] = STATUS_COLOR_MAP.get(batch.status, "#6b7280")
         batch_data["review_status_name"] = REVIEW_STATUS_MAP.get(batch.review_status, batch.review_status)
         batch_data["review_status_color"] = REVIEW_STATUS_COLOR_MAP.get(batch.review_status, "#6b7280")
         result.append(batch_data)
@@ -97,6 +109,7 @@ def get_batch_detail(batch_id: int, db: Session = Depends(get_db)):
 
     batch_data = schemas.BatchDetail.model_validate(batch).model_dump()
     batch_data["status_name"] = STATUS_MAP.get(batch.status, batch.status)
+    batch_data["status_color"] = STATUS_COLOR_MAP.get(batch.status, "#6b7280")
     batch_data["review_status_name"] = REVIEW_STATUS_MAP.get(batch.review_status, batch.review_status)
     batch_data["review_status_color"] = REVIEW_STATUS_COLOR_MAP.get(batch.review_status, "#6b7280")
 
@@ -115,6 +128,10 @@ def get_batch_detail(batch_id: int, db: Session = Depends(get_db)):
     if batch.delivery_review:
         dr_data = schemas.DeliveryReviewWithReviewer.model_validate(batch.delivery_review).model_dump(by_alias=True)
         batch_data["delivery_review"] = dr_data
+
+    if batch.delivery_archive:
+        da_data = schemas.DeliveryArchiveWithArchiver.model_validate(batch.delivery_archive).model_dump()
+        batch_data["delivery_archive"] = da_data
 
     return schemas.ApiResponse(data=batch_data)
 
@@ -371,3 +388,58 @@ def get_delivery_review(batch_id: int, db: Session = Depends(get_db)):
         batch.delivery_review
     ).model_dump(by_alias=True)
     return schemas.ApiResponse(data=review_data)
+
+
+@router.post("/{batch_id}/delivery-archive", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_inspector)])
+def record_delivery_archive(
+    batch_id: int,
+    record_in: schemas.DeliveryArchiveCreate,
+    current_user: models.User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    batch = db.query(models.Batch).filter(models.Batch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="批次不存在")
+
+    if batch.status != "deliverable":
+        raise HTTPException(status_code=400, detail="当前状态不允许交付归档")
+
+    if batch.delivery_archive:
+        raise HTTPException(status_code=400, detail="该批次已完成交付归档，不可重复提交")
+
+    if record_in.delivered_quantity <= 0:
+        raise HTTPException(status_code=400, detail="交付数量必须大于0")
+
+    if record_in.delivered_quantity > batch.quantity:
+        raise HTTPException(status_code=400, detail="交付数量不能超过批次总数量")
+
+    archive = models.DeliveryArchive(
+        batch_id=batch_id,
+        archiver_id=current_user.id,
+        delivery_time=record_in.delivery_time,
+        delivered_quantity=record_in.delivered_quantity,
+        receiver=record_in.receiver,
+        delivery_remark=record_in.delivery_remark,
+        quality_conclusion=record_in.quality_conclusion
+    )
+    db.add(archive)
+
+    batch.status = "delivered"
+    db.commit()
+
+    return schemas.ApiResponse(message="交付归档完成")
+
+
+@router.get("/{batch_id}/delivery-archive", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
+def get_delivery_archive(batch_id: int, db: Session = Depends(get_db)):
+    batch = db.query(models.Batch).filter(models.Batch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="批次不存在")
+
+    if not batch.delivery_archive:
+        return schemas.ApiResponse(data=None)
+
+    archive_data = schemas.DeliveryArchiveWithArchiver.model_validate(
+        batch.delivery_archive
+    ).model_dump()
+    return schemas.ApiResponse(data=archive_data)

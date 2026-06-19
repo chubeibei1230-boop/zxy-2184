@@ -15,6 +15,7 @@ STATUS_COLORS = {
     "pending_inspect": "#8b5cf6",
     "reworking": "#ef4444",
     "deliverable": "#10b981",
+    "delivered": "#0ea5e9",
     "paused": "#6b7280"
 }
 
@@ -24,6 +25,7 @@ STATUS_NAMES = {
     "pending_inspect": "待质检",
     "reworking": "返工中",
     "deliverable": "可交付",
+    "delivered": "已交付",
     "paused": "暂停"
 }
 
@@ -87,6 +89,7 @@ def get_summary(
         pending_inspect=status_counts.get("pending_inspect", 0),
         reworking=status_counts.get("reworking", 0),
         deliverable=status_counts.get("deliverable", 0),
+        delivered=status_counts.get("delivered", 0),
         paused=status_counts.get("paused", 0),
         pending_delivery_review=pending_review_count,
         warning_count=len(warnings)
@@ -140,7 +143,7 @@ def get_station_load(
                                           start_date, end_date, keyword)
 
         occupied_query = base_query.filter(
-            models.Batch.status.notin_(["deliverable", "paused"])
+            models.Batch.status.notin_(["deliverable", "delivered", "paused"])
         )
 
         occupied_count = occupied_query.count()

@@ -152,6 +152,14 @@
         >
           交付复核
         </el-button>
+        <el-button
+          v-if="canDeliveryArchive"
+          type="success"
+          :icon="Files"
+          @click="openDeliveryArchiveDialog"
+        >
+          交付归档
+        </el-button>
       </div>
 
       <div class="card timeline-card">
@@ -262,6 +270,46 @@
         </div>
         <div v-else class="review-empty">
           <el-empty description="暂无交付复核信息" />
+        </div>
+      </div>
+
+      <div class="card delivery-archive-card" v-if="batchDetail">
+        <div class="card-header">
+          <span>交付归档信息</span>
+        </div>
+        <div v-if="batchDetail.delivery_archive" class="archive-info">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="label">交付时间：</span>
+              <span class="value">{{ formatDateTime(batchDetail.delivery_archive.delivery_time) }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">归档人：</span>
+              <span class="value">{{ batchDetail.delivery_archive.archiver?.name || '-' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">交付数量：</span>
+              <span class="value">{{ batchDetail.delivery_archive.delivered_quantity }} / {{ batchDetail.quantity }} 件</span>
+            </div>
+            <div class="info-item">
+              <span class="label">接收方：</span>
+              <span class="value">{{ batchDetail.delivery_archive.receiver }}</span>
+            </div>
+            <div class="info-item full-width">
+              <span class="label">关联质检结论：</span>
+              <span class="value">{{ batchDetail.delivery_archive.quality_conclusion || '-' }}</span>
+            </div>
+            <div class="info-item full-width" v-if="batchDetail.delivery_archive.delivery_remark">
+              <span class="label">交付备注：</span>
+              <span class="value">{{ batchDetail.delivery_archive.delivery_remark }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="canDeliveryArchive" class="archive-empty">
+          <el-empty description="待交付归档，请点击上方【交付归档】按钮进行操作" />
+        </div>
+        <div v-else class="archive-empty">
+          <el-empty description="暂无交付归档信息" />
         </div>
       </div>
     </div>
@@ -599,6 +647,67 @@
         <el-button type="primary" @click="handleDeliveryReview" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="deliveryArchiveDialogVisible"
+      title="交付归档"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="deliveryArchiveFormRef"
+        :model="deliveryArchiveForm"
+        :rules="deliveryArchiveRules"
+        label-width="110px"
+      >
+        <el-form-item label="交付时间" prop="delivery_time">
+          <el-date-picker
+            v-model="deliveryArchiveForm.delivery_time"
+            type="datetime"
+            placeholder="选择时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%;"
+          />
+        </el-form-item>
+        <el-form-item label="交付数量" prop="delivered_quantity">
+          <el-input-number
+            v-model="deliveryArchiveForm.delivered_quantity"
+            :min="1"
+            :max="batchDetail?.quantity || 10000"
+            style="width: 100%;"
+          />
+          <span style="color: #94a3b8; font-size: 12px;">
+            批次总数量：{{ batchDetail?.quantity || '-' }} 件，交付数量不能超过总数量
+          </span>
+        </el-form-item>
+        <el-form-item label="接收方" prop="receiver">
+          <el-input
+            v-model="deliveryArchiveForm.receiver"
+            placeholder="请输入接收方"
+          />
+        </el-form-item>
+        <el-form-item label="关联质检结论" prop="quality_conclusion">
+          <el-input
+            v-model="deliveryArchiveForm.quality_conclusion"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入关联质检结论"
+          />
+        </el-form-item>
+        <el-form-item label="交付备注" prop="delivery_remark">
+          <el-input
+            v-model="deliveryArchiveForm.delivery_remark"
+            type="textarea"
+            :rows="2"
+            placeholder="有备注请填写，无备注可留空"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="deliveryArchiveDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleDeliveryArchive" :loading="submitting">确定归档</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -608,7 +717,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import {
   ArrowLeft, RefreshRight, Watermelon, Box, Crop,
-  Warning, RefreshLeft, CircleCheck, DocumentChecked
+  Warning, RefreshLeft, CircleCheck, DocumentChecked, Files
 } from '@element-plus/icons-vue'
 import { batchApi } from '@/api'
 import {
@@ -634,6 +743,7 @@ const bubbleDialogVisible = ref(false)
 const reworkDialogVisible = ref(false)
 const inspectDialogVisible = ref(false)
 const deliveryReviewDialogVisible = ref(false)
+const deliveryArchiveDialogVisible = ref(false)
 
 const pourFormRef = ref<FormInstance>()
 const demoldFormRef = ref<FormInstance>()
@@ -642,6 +752,7 @@ const bubbleFormRef = ref<FormInstance>()
 const reworkFormRef = ref<FormInstance>()
 const inspectFormRef = ref<FormInstance>()
 const deliveryReviewFormRef = ref<FormInstance>()
+const deliveryArchiveFormRef = ref<FormInstance>()
 
 const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
 
@@ -693,6 +804,14 @@ const deliveryReviewForm = reactive({
   final_quality_conclusion: '',
   pass: true,
   exception_remark: ''
+})
+
+const deliveryArchiveForm = reactive({
+  delivery_time: now,
+  delivered_quantity: null as number | null,
+  receiver: '',
+  quality_conclusion: '',
+  delivery_remark: ''
 })
 
 const pourRules: FormRules = {
@@ -751,6 +870,25 @@ const deliveryReviewRules: FormRules = {
   pass: [{ required: true, message: '请选择复核结论', trigger: 'change' }]
 }
 
+const deliveryArchiveRules: FormRules = {
+  delivery_time: [{ required: true, message: '请选择交付时间', trigger: 'change' }],
+  delivered_quantity: [
+    { required: true, message: '请输入交付数量', trigger: 'blur' },
+    {
+      validator: (_rule, value, callback) => {
+        if (value !== null && value !== undefined && batchDetail.value && value > batchDetail.value.quantity) {
+          callback(new Error('交付数量不能超过批次总数量'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  receiver: [{ required: true, message: '请输入接收方', trigger: 'blur' }],
+  quality_conclusion: [{ required: true, message: '请输入关联质检结论', trigger: 'blur' }]
+}
+
 const canPour = computed(() => {
   if (!batchDetail.value) return false
   const status = batchDetail.value.status
@@ -799,6 +937,14 @@ const canDeliveryReview = computed(() => {
   const reviewStatus = batchDetail.value.review_status
   const isInspector = userStore.userRole === 'inspector' || userStore.userRole === 'admin'
   return isInspector && status === 'deliverable' && reviewStatus === 'pending_review'
+})
+
+const canDeliveryArchive = computed(() => {
+  if (!batchDetail.value) return false
+  const status = batchDetail.value.status
+  const hasArchive = !!batchDetail.value.delivery_archive
+  const isInspector = userStore.userRole === 'inspector' || userStore.userRole === 'admin'
+  return isInspector && status === 'deliverable' && !hasArchive
 })
 
 const sortedProcessRecords = computed(() => {
@@ -933,6 +1079,16 @@ const openDeliveryReviewDialog = () => {
   deliveryReviewForm.pass = true
   deliveryReviewForm.exception_remark = ''
   deliveryReviewDialogVisible.value = true
+}
+
+const openDeliveryArchiveDialog = () => {
+  deliveryArchiveFormRef.value?.resetFields()
+  deliveryArchiveForm.delivery_time = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  deliveryArchiveForm.delivered_quantity = batchDetail.value?.delivery_review?.delivered_quantity ?? batchDetail.value?.quantity ?? null
+  deliveryArchiveForm.receiver = ''
+  deliveryArchiveForm.quality_conclusion = batchDetail.value?.delivery_review?.final_quality_conclusion ?? ''
+  deliveryArchiveForm.delivery_remark = ''
+  deliveryArchiveDialogVisible.value = true
 }
 
 const handlePour = async () => {
@@ -1071,6 +1227,25 @@ const handleDeliveryReview = async () => {
   })
 }
 
+const handleDeliveryArchive = async () => {
+  if (!deliveryArchiveFormRef.value) return
+  await deliveryArchiveFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    submitting.value = true
+    try {
+      await batchApi.recordDeliveryArchive(batchId.value, deliveryArchiveForm)
+      ElMessage.success('交付归档完成')
+      deliveryArchiveDialogVisible.value = false
+      loadDetail()
+    } catch (e: any) {
+      console.error('Record delivery archive failed', e)
+      ElMessage.error(e.response?.data?.message || '保存交付归档失败')
+    } finally {
+      submitting.value = false
+    }
+  })
+}
+
 onMounted(() => {
   loadDetail()
 })
@@ -1170,6 +1345,20 @@ onMounted(() => {
 }
 
 .review-empty {
+  padding: 20px 0;
+}
+
+.delivery-archive-card .archive-info .info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.delivery-archive-card .archive-info .info-item.full-width {
+  grid-column: span 2;
+}
+
+.archive-empty {
   padding: 20px 0;
 }
 </style>

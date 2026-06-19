@@ -21,6 +21,28 @@ def migrate():
             else:
                 print("batches.review_status 字段已存在")
 
+            result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='delivery_archives'"))
+            if result.fetchone() is None:
+                conn.execute(text("""
+                    CREATE TABLE delivery_archives (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        batch_id INTEGER NOT NULL UNIQUE,
+                        archiver_id INTEGER NOT NULL,
+                        delivery_time DATETIME NOT NULL,
+                        delivered_quantity INTEGER NOT NULL,
+                        receiver VARCHAR(100) NOT NULL,
+                        delivery_remark TEXT,
+                        quality_conclusion VARCHAR(500) NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (batch_id) REFERENCES batches (id),
+                        FOREIGN KEY (archiver_id) REFERENCES users (id)
+                    )
+                """))
+                conn.commit()
+                print("已创建 delivery_archives 表")
+            else:
+                print("delivery_archives 表已存在")
+
         deliverable_batches = db.query(models.Batch).filter(
             models.Batch.status == "deliverable",
             models.Batch.review_status == "not_required"

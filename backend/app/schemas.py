@@ -230,6 +230,53 @@ class DeliveryReviewWithReviewer(DeliveryReview):
     reviewer: User
 
 
+class DeliveryArchiveBase(BaseModel):
+    delivery_time: datetime
+    delivered_quantity: int
+    receiver: str
+    delivery_remark: Optional[str] = None
+    quality_conclusion: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DeliveryArchiveCreate(BaseModel):
+    delivery_time: datetime
+    delivered_quantity: int
+    receiver: str
+    delivery_remark: Optional[str] = None
+    quality_conclusion: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DeliveryArchive(DeliveryArchiveBase):
+    id: int
+    batch_id: int
+    archiver_id: int
+    created_at: datetime
+
+
+class DeliveryArchiveWithArchiver(DeliveryArchive):
+    archiver: User
+
+
+class DeliveryArchiveItem(BaseModel):
+    id: int
+    batch_id: int
+    batch_code: str
+    style_id: int
+    style_name: str
+    wax_batch_code: str
+    delivery_time: datetime
+    delivered_quantity: int
+    receiver: str
+    delivery_remark: Optional[str] = None
+    quality_conclusion: str
+    archiver_id: int
+    archiver_name: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
 class BatchDetail(Batch):
     style: Style
     wax_batch: WaxBatch
@@ -240,6 +287,7 @@ class BatchDetail(Batch):
     process_records: List["ProcessRecord"] = []
     inspection_records: List["InspectionRecord"] = []
     delivery_review: Optional[DeliveryReviewWithReviewer] = None
+    delivery_archive: Optional[DeliveryArchiveWithArchiver] = None
 
 
 class ProcessRecordBase(BaseModel):
@@ -353,6 +401,7 @@ class DashboardSummary(BaseModel):
     pending_inspect: int
     reworking: int
     deliverable: int
+    delivered: int
     paused: int
     pending_delivery_review: int
     warning_count: int

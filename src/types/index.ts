@@ -69,7 +69,7 @@ export interface InspectionCycle {
   style?: Style
 }
 
-export type BatchStatus = 'pending_pour' | 'molding' | 'pending_inspect' | 'reworking' | 'deliverable' | 'paused'
+export type BatchStatus = 'pending_pour' | 'molding' | 'pending_inspect' | 'reworking' | 'deliverable' | 'delivered' | 'paused'
 export type ReviewStatus = 'not_required' | 'pending_review' | 'reviewed'
 
 export interface Batch {
@@ -94,6 +94,7 @@ export interface Batch {
   technician_name?: string
   inspector_name?: string
   status_name?: string
+  status_color?: string
   review_status_name?: string
   review_status_color?: string
 }
@@ -111,6 +112,36 @@ export interface DeliveryReview {
   reviewer?: User
 }
 
+export interface DeliveryArchive {
+  id: number
+  batch_id: number
+  archiver_id: number
+  delivery_time: string
+  delivered_quantity: number
+  receiver: string
+  delivery_remark: string | null
+  quality_conclusion: string
+  created_at: string
+  archiver?: User
+}
+
+export interface DeliveryArchiveItem {
+  id: number
+  batch_id: number
+  batch_code: string
+  style_id: number
+  style_name: string
+  wax_batch_code: string
+  delivery_time: string
+  delivered_quantity: number
+  receiver: string
+  delivery_remark: string | null
+  quality_conclusion: string
+  archiver_id: number
+  archiver_name: string
+  created_at: string
+}
+
 export interface BatchDetail extends Batch {
   style: Style
   wax_batch: WaxBatch
@@ -121,6 +152,7 @@ export interface BatchDetail extends Batch {
   process_records: ProcessRecord[]
   inspection_records: InspectionRecord[]
   delivery_review?: DeliveryReview | null
+  delivery_archive?: DeliveryArchive | null
 }
 
 export interface ProcessRecord {
@@ -172,6 +204,7 @@ export interface DashboardSummary {
   pending_inspect: number
   reworking: number
   deliverable: number
+  delivered: number
   paused: number
   pending_delivery_review: number
   warning_count: number
@@ -221,6 +254,7 @@ export const STATUS_MAP: Record<BatchStatus, string> = {
   pending_inspect: '待质检',
   reworking: '返工中',
   deliverable: '可交付',
+  delivered: '已交付',
   paused: '暂停'
 }
 
@@ -230,6 +264,7 @@ export const STATUS_COLOR_MAP: Record<BatchStatus, string> = {
   pending_inspect: '#8b5cf6',
   reworking: '#ef4444',
   deliverable: '#10b981',
+  delivered: '#0ea5e9',
   paused: '#6b7280'
 }
 

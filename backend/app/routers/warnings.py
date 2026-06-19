@@ -71,7 +71,8 @@ def check_bubble_concentration(db: Session) -> list:
         models.Style, models.Batch.style_id == models.Style.id
     ).filter(
         models.ProcessRecord.type == "bubble",
-        models.ProcessRecord.bubble_count.isnot(None)
+        models.ProcessRecord.bubble_count.isnot(None),
+        models.Batch.status != "delivered"
     ).group_by(
         models.ProcessRecord.batch_id, models.Batch.style_id, models.Style.name
     ).having(

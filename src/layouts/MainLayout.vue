@@ -45,6 +45,11 @@
           <el-badge v-if="warningCount > 0" :value="warningCount" class="warning-badge" />
         </el-menu-item>
 
+        <el-menu-item index="/delivery-archives">
+          <el-icon><Files /></el-icon>
+          <template #title>交付归档管理</template>
+        </el-menu-item>
+
         <el-menu-item index="/users" v-if="userStore.userRole === 'admin'">
           <el-icon><User /></el-icon>
           <template #title>用户管理</template>
@@ -117,7 +122,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
-  Cpu, DataLine, Setting, Tickets, Warning, User,
+  Cpu, DataLine, Setting, Tickets, Warning, User, Files,
   Expand, Fold, RefreshRight, Bell, UserFilled,
   CaretBottom, SwitchButton
 } from '@element-plus/icons-vue'
