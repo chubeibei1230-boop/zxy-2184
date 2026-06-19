@@ -213,7 +213,7 @@ def record_trim(
     if not batch:
         raise HTTPException(status_code=404, detail="批次不存在")
 
-    if batch.status != "molding":
+    if batch.status not in ["molding", "reworking"]:
         raise HTTPException(status_code=400, detail="当前状态不允许记录修边")
 
     record = models.ProcessRecord(
@@ -285,4 +285,4 @@ def record_rework(
     batch.status = "pending_inspect"
     db.commit()
 
-    return schemas.ApiResponse(message="返工申请已提交，批次重新进入待质检状态")
+    return schemas.ApiResponse(message="返工完成，批次重新进入待质检状态")

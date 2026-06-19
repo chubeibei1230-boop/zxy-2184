@@ -116,11 +116,11 @@
         </el-button>
         <el-button
           v-if="canRework"
-          type="danger"
+          type="warning"
           :icon="RefreshLeft"
           @click="openReworkDialog"
         >
-          返工申请
+          返工完成
         </el-button>
         <el-button
           v-if="canInspect"
@@ -379,7 +379,7 @@
 
     <el-dialog
       v-model="reworkDialogVisible"
-      title="返工申请"
+      title="返工完成"
       width="500px"
       :close-on-click-modal="false"
     >
@@ -389,7 +389,7 @@
         :rules="reworkRules"
         label-width="100px"
       >
-        <el-form-item label="申请时间" prop="record_time">
+        <el-form-item label="返工时间" prop="record_time">
           <el-date-picker
             v-model="reworkForm.record_time"
             type="datetime"
@@ -582,7 +582,7 @@ const bubbleRules: FormRules = {
 }
 
 const reworkRules: FormRules = {
-  record_time: [{ required: true, message: '请选择申请时间', trigger: 'change' }],
+  record_time: [{ required: true, message: '请选择返工时间', trigger: 'change' }],
   rework_reason: [{ required: true, message: '请输入返工原因', trigger: 'blur' }],
   rework_count: [{ required: true, message: '请输入返工数量', trigger: 'blur' }]
 }
@@ -613,14 +613,14 @@ const canTrim = computed(() => {
   if (!batchDetail.value) return false
   const status = batchDetail.value.status
   const isTechnician = userStore.userRole === 'technician' || userStore.userRole === 'admin'
-  return isTechnician && status === 'molding'
+  return isTechnician && (status === 'molding' || status === 'reworking')
 })
 
 const canRecordBubble = computed(() => {
   if (!batchDetail.value) return false
   const status = batchDetail.value.status
   const isTechnician = userStore.userRole === 'technician' || userStore.userRole === 'admin'
-  return isTechnician && status === 'molding'
+  return isTechnician && (status === 'molding' || status === 'reworking')
 })
 
 const canRework = computed(() => {
@@ -662,7 +662,7 @@ const getRecordTypeName = (type: string) => {
     demold: '脱模',
     trim: '修边',
     bubble: '气泡记录',
-    rework: '返工申请'
+    rework: '返工完成'
   }
   return map[type] || type
 }
@@ -844,12 +844,12 @@ const handleRework = async () => {
     submitting.value = true
     try {
       await batchApi.recordRework(batchId.value, reworkForm)
-      ElMessage.success('返工申请已提交，批次重新进入待质检状态')
+      ElMessage.success('返工完成，批次重新进入待质检状态')
       reworkDialogVisible.value = false
       loadDetail()
     } catch (e: any) {
       console.error('Record rework failed', e)
-      ElMessage.error(e.response?.data?.message || '提交返工申请失败')
+      ElMessage.error(e.response?.data?.message || '记录返工失败')
     } finally {
       submitting.value = false
     }

@@ -9,13 +9,22 @@
 
     <div class="filter-bar">
       <el-form :inline="true" :model="filterForm" @submit.prevent>
+        <el-form-item label="批次号">
+          <el-input
+            v-model="filterForm.keyword"
+            placeholder="请输入批次号"
+            clearable
+            @keyup.enter="loadData"
+            style="width: 180px;"
+          />
+        </el-form-item>
         <el-form-item label="款式">
-          <el-select v-model="filterForm.style_id" placeholder="全部款式" clearable @change="loadData">
+          <el-select v-model="filterForm.style_id" placeholder="全部款式" clearable @change="loadData" style="width: 140px;">
             <el-option v-for="style in styles" :key="style.id" :label="style.name" :value="style.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filterForm.status" placeholder="全部状态" clearable @change="loadData">
+          <el-select v-model="filterForm.status" placeholder="全部状态" clearable @change="loadData" style="width: 120px;">
             <el-option label="待浇注" value="pending_pour" />
             <el-option label="成型中" value="molding" />
             <el-option label="待质检" value="pending_inspect" />
@@ -25,7 +34,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="责任人">
-          <el-select v-model="filterForm.technician_id" placeholder="全部工艺员" clearable @change="loadData">
+          <el-select v-model="filterForm.technician_id" placeholder="全部工艺员" clearable @change="loadData" style="width: 120px;">
             <el-option v-for="user in technicians" :key="user.id" :label="user.name" :value="user.id" />
           </el-select>
         </el-form-item>
@@ -41,6 +50,7 @@
           />
         </el-form-item>
         <el-form-item>
+          <el-button type="primary" @click="loadData">查询</el-button>
           <el-button @click="resetFilter">重置</el-button>
         </el-form-item>
       </el-form>
@@ -246,6 +256,7 @@ const styles = ref<Style[]>([])
 const technicians = ref<User[]>([])
 
 const filterForm = reactive({
+  keyword: '',
   style_id: null as number | null,
   status: null as string | null,
   technician_id: null as number | null,
@@ -281,22 +292,30 @@ const loadTechnicians = async () => {
   }
 }
 
+const getFilterParams = () => {
+  const params: any = {}
+  if (filterForm.keyword) params.keyword = filterForm.keyword
+  if (filterForm.style_id) params.style_id = filterForm.style_id
+  if (filterForm.status) params.status = filterForm.status
+  if (filterForm.technician_id) params.technician_id = filterForm.technician_id
+  if (filterForm.date_range?.length === 2) {
+    params.start_date = filterForm.date_range[0]
+    params.end_date = filterForm.date_range[1]
+  }
+  return params
+}
+
 const loadData = async () => {
   loading.value = true
   try {
-    const params: any = {}
-    if (filterForm.style_id) params.style_id = filterForm.style_id
-    if (filterForm.status) params.status = filterForm.status
-    if (filterForm.technician_id) params.technician_id = filterForm.technician_id
-    if (filterForm.date_range?.length === 2) {
-      params.start_date = filterForm.date_range[0]
-      params.end_date = filterForm.date_range[1]
-    }
+    const params = getFilterParams()
+    const progressParams = { ...params }
+    delete progressParams.status
 
     const [summaryRes, progressRes, stationRes, pendingRes, warningRes] = await Promise.all([
-      dashboardApi.getSummary(),
-      dashboardApi.getBatchProgress(),
-      dashboardApi.getStationLoad(),
+      dashboardApi.getSummary(params),
+      dashboardApi.getBatchProgress(progressParams),
+      dashboardApi.getStationLoad(params),
       dashboardApi.getPendingInspections(params),
       warningApi.getList()
     ])
@@ -453,6 +472,7 @@ const viewBatch = (id: number) => {
 }
 
 const resetFilter = () => {
+  filterForm.keyword = ''
   filterForm.style_id = null
   filterForm.status = null
   filterForm.technician_id = null

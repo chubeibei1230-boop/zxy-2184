@@ -35,13 +35,42 @@ STATION_TYPE_NAMES = {
 }
 
 
+def _apply_batch_filters(query, style_id=None, status=None, technician_id=None,
+                         start_date=None, end_date=None, keyword=None):
+    if style_id:
+        query = query.filter(models.Batch.style_id == style_id)
+    if status:
+        query = query.filter(models.Batch.status == status)
+    if technician_id:
+        query = query.filter(models.Batch.technician_id == technician_id)
+    if start_date:
+        query = query.filter(models.Batch.planned_start_date >= start_date)
+    if end_date:
+        query = query.filter(models.Batch.planned_end_date <= end_date)
+    if keyword:
+        query = query.filter(models.Batch.code.contains(keyword))
+    return query
+
+
 @router.get("/summary", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
-def get_summary(db: Session = Depends(get_db)):
-    total = db.query(models.Batch).count()
+def get_summary(
+    style_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    technician_id: Optional[int] = Query(None),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    keyword: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    base_query = db.query(models.Batch)
+    base_query = _apply_batch_filters(base_query, style_id, status, technician_id,
+                                      start_date, end_date, keyword)
+
+    total = base_query.count()
     status_counts = {}
-    for status in STATUS_NAMES:
-        count = db.query(models.Batch).filter(models.Batch.status == status).count()
-        status_counts[status] = count
+    for s in STATUS_NAMES:
+        count = base_query.filter(models.Batch.status == s).count()
+        status_counts[s] = count
 
     from .warnings import get_all_warnings_internal
     warnings = get_all_warnings_internal(db)
@@ -61,10 +90,21 @@ def get_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/batch-progress", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
-def get_batch_progress(db: Session = Depends(get_db)):
+def get_batch_progress(
+    style_id: Optional[int] = Query(None),
+    technician_id: Optional[int] = Query(None),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    keyword: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    base_query = db.query(models.Batch)
+    base_query = _apply_batch_filters(base_query, style_id, None, technician_id,
+                                      start_date, end_date, keyword)
+
     result = []
     for status, name in STATUS_NAMES.items():
-        count = db.query(models.Batch).filter(models.Batch.status == status).count()
+        count = base_query.filter(models.Batch.status == status).count()
         result.append(schemas.BatchProgressItem(
             status=status,
             status_name=name,
@@ -76,19 +116,29 @@ def get_batch_progress(db: Session = Depends(get_db)):
 
 
 @router.get("/station-load", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
-def get_station_load(db: Session = Depends(get_db)):
+def get_station_load(
+    style_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    technician_id: Optional[int] = Query(None),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    keyword: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
     stations = db.query(models.Station).all()
     result = []
 
     for station in stations:
-        occupied_count = db.query(models.Batch).filter(
-            models.Batch.station_id == station.id,
-            models.Batch.status.notin_(["deliverable", "paused"])
-        ).count()
+        base_query = db.query(models.Batch).filter(models.Batch.station_id == station.id)
+        base_query = _apply_batch_filters(base_query, style_id, status, technician_id,
+                                          start_date, end_date, keyword)
 
-        total_count = db.query(models.Batch).filter(
-            models.Batch.station_id == station.id
-        ).count()
+        occupied_query = base_query.filter(
+            models.Batch.status.notin_(["deliverable", "paused"])
+        )
+
+        occupied_count = occupied_query.count()
+        total_count = base_query.count()
 
         rate = (occupied_count / total_count * 100) if total_count > 0 else 0
 
@@ -112,6 +162,7 @@ def get_pending_inspections(
     technician_id: Optional[int] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
+    keyword: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Batch).filter(models.Batch.status == "pending_inspect")
@@ -124,6 +175,8 @@ def get_pending_inspections(
         query = query.filter(models.Batch.planned_start_date >= start_date)
     if end_date:
         query = query.filter(models.Batch.planned_end_date <= end_date)
+    if keyword:
+        query = query.filter(models.Batch.code.contains(keyword))
 
     batches = query.order_by(models.Batch.created_at.desc()).all()
 

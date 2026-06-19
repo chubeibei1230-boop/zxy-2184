@@ -106,12 +106,12 @@ export const batchApi = {
 }
 
 export const dashboardApi = {
-  getSummary: () =>
-    request.get<any, ApiResponse<DashboardSummary>>('/dashboard/summary'),
-  getBatchProgress: () =>
-    request.get<any, ApiResponse<{ items: BatchProgressItem[] }>>('/dashboard/batch-progress'),
-  getStationLoad: () =>
-    request.get<any, ApiResponse<{ items: StationLoadItem[] }>>('/dashboard/station-load'),
+  getSummary: (params?: any) =>
+    request.get<any, ApiResponse<DashboardSummary>>('/dashboard/summary', { params }),
+  getBatchProgress: (params?: any) =>
+    request.get<any, ApiResponse<{ items: BatchProgressItem[] }>>('/dashboard/batch-progress', { params }),
+  getStationLoad: (params?: any) =>
+    request.get<any, ApiResponse<{ items: StationLoadItem[] }>>('/dashboard/station-load', { params }),
   getPendingInspections: (params?: any) =>
     request.get<any, ApiResponse<{ items: PendingInspectionItem[] }>>('/dashboard/pending-inspections', { params })
 }
