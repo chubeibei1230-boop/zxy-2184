@@ -1,0 +1,353 @@
+from datetime import date, datetime
+from typing import Optional, List
+from pydantic import BaseModel, Field, ConfigDict
+
+
+class ApiResponse(BaseModel):
+    code: int = 200
+    message: str = "success"
+    data: Optional[dict] = None
+
+
+class UserBase(BaseModel):
+    username: str
+    name: str
+    role: str
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+
+
+class User(UserBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: User
+
+
+class StyleBase(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+
+
+class StyleCreate(StyleBase):
+    pass
+
+
+class StyleUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class Style(StyleBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WaxBatchBase(BaseModel):
+    code: str
+    material: str
+    production_date: date
+    quantity: int
+    remark: Optional[str] = None
+
+
+class WaxBatchCreate(WaxBatchBase):
+    pass
+
+
+class WaxBatchUpdate(BaseModel):
+    code: Optional[str] = None
+    material: Optional[str] = None
+    production_date: Optional[date] = None
+    quantity: Optional[int] = None
+    remark: Optional[str] = None
+
+
+class WaxBatch(WaxBatchBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MoldBase(BaseModel):
+    code: str
+    name: str
+    style_id: int
+    max_cavities: int
+    status: str = "available"
+
+
+class MoldCreate(MoldBase):
+    pass
+
+
+class MoldUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    style_id: Optional[int] = None
+    max_cavities: Optional[int] = None
+    status: Optional[str] = None
+
+
+class Mold(MoldBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MoldWithStyle(Mold):
+    style: Style
+
+
+class StationBase(BaseModel):
+    code: str
+    name: str
+    type: str
+    status: str = "idle"
+
+
+class StationCreate(StationBase):
+    pass
+
+
+class StationUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    type: Optional[str] = None
+    status: Optional[str] = None
+
+
+class Station(StationBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InspectionCycleBase(BaseModel):
+    style_id: int
+    cycle_days: int
+
+
+class InspectionCycleCreate(InspectionCycleBase):
+    pass
+
+
+class InspectionCycleUpdate(BaseModel):
+    style_id: Optional[int] = None
+    cycle_days: Optional[int] = None
+
+
+class InspectionCycle(InspectionCycleBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InspectionCycleWithStyle(InspectionCycle):
+    style: Style
+
+
+class BatchBase(BaseModel):
+    code: str
+    style_id: int
+    wax_batch_id: int
+    mold_id: int
+    station_id: int
+    technician_id: int
+    inspector_id: Optional[int] = None
+    planned_start_date: date
+    planned_end_date: date
+    quantity: int
+    remark: Optional[str] = None
+
+
+class BatchCreate(BatchBase):
+    pass
+
+
+class BatchUpdateStatus(BaseModel):
+    status: str
+    remark: Optional[str] = None
+
+
+class Batch(BatchBase):
+    id: int
+    status: str
+    actual_start_date: Optional[datetime] = None
+    actual_end_date: Optional[datetime] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BatchDetail(Batch):
+    style: Style
+    wax_batch: WaxBatch
+    mold: Mold
+    station: Station
+    technician: User
+    inspector: Optional[User] = None
+    process_records: List["ProcessRecord"] = []
+    inspection_records: List["InspectionRecord"] = []
+
+
+class ProcessRecordBase(BaseModel):
+    batch_id: int
+    type: str
+    record_time: datetime
+    temperature: Optional[float] = None
+    pressure: Optional[float] = None
+    hold_time: Optional[int] = None
+    cooling_time: Optional[int] = None
+    bubble_description: Optional[str] = None
+    bubble_count: Optional[int] = None
+    rework_reason: Optional[str] = None
+    rework_count: Optional[int] = None
+    remark: Optional[str] = None
+
+
+class ProcessRecordCreate(ProcessRecordBase):
+    pass
+
+
+class ProcessRecord(ProcessRecordBase):
+    id: int
+    operator_id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProcessRecordWithOperator(ProcessRecord):
+    operator: User
+
+
+class PourRecordCreate(BaseModel):
+    record_time: datetime
+    temperature: float
+    pressure: float
+    hold_time: int
+    cooling_time: int
+    remark: Optional[str] = None
+
+
+class DemoldRecordCreate(BaseModel):
+    record_time: datetime
+    temperature: Optional[float] = None
+    cooling_time: Optional[int] = None
+    remark: Optional[str] = None
+
+
+class TrimRecordCreate(BaseModel):
+    record_time: datetime
+    remark: Optional[str] = None
+
+
+class BubbleRecordCreate(BaseModel):
+    record_time: datetime
+    bubble_description: str
+    bubble_count: int
+    remark: Optional[str] = None
+
+
+class ReworkRecordCreate(BaseModel):
+    record_time: datetime
+    rework_reason: str
+    rework_count: int
+    remark: Optional[str] = None
+
+
+class InspectionRecordBase(BaseModel):
+    batch_id: int
+    inspect_time: datetime
+    dimension_deviation: str
+    surface_flatness: float
+    is_pass: bool = Field(alias="pass")
+    opinion: str
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class InspectionRecordCreate(BaseModel):
+    inspect_time: datetime
+    dimension_deviation: str
+    surface_flatness: float
+    is_pass: bool = Field(alias="pass")
+    opinion: str
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class InspectionRecord(InspectionRecordBase):
+    id: int
+    inspector_id: int
+    created_at: datetime
+
+
+class InspectionRecordWithInspector(InspectionRecord):
+    inspector: User
+
+
+class WarningItem(BaseModel):
+    type: str
+    level: str
+    title: str
+    content: str
+    related_id: Optional[int] = None
+    related_type: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class DashboardSummary(BaseModel):
+    total_batches: int
+    pending_pour: int
+    molding: int
+    pending_inspect: int
+    reworking: int
+    deliverable: int
+    paused: int
+    warning_count: int
+
+
+class BatchProgressItem(BaseModel):
+    status: str
+    status_name: str
+    count: int
+    color: str
+
+
+class StationLoadItem(BaseModel):
+    id: int
+    code: str
+    name: str
+    type: str
+    type_name: str
+    occupied: int
+    total: int
+    rate: float
+
+
+class PendingInspectionItem(BaseModel):
+    id: int
+    code: str
+    style_name: str
+    technician_name: str
+    created_at: datetime
+    days_overdue: int
