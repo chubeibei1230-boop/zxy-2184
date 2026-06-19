@@ -273,6 +273,10 @@ class DeliveryArchiveItem(BaseModel):
     quality_conclusion: str
     archiver_id: int
     archiver_name: str
+    technician_id: int
+    technician_name: str
+    status: str
+    status_name: str
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

@@ -8,6 +8,16 @@ from .. import models, schemas, auth
 
 router = APIRouter(prefix="/delivery-archives", tags=["交付归档"])
 
+STATUS_MAP = {
+    "pending_pour": "待浇注",
+    "molding": "成型中",
+    "pending_inspect": "待质检",
+    "reworking": "返工中",
+    "deliverable": "可交付",
+    "delivered": "已交付",
+    "paused": "暂停"
+}
+
 
 @router.get("", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
 def get_delivery_archives(
@@ -16,6 +26,8 @@ def get_delivery_archives(
     keyword: Optional[str] = Query(None),
     receiver: Optional[str] = Query(None),
     archiver_id: Optional[int] = Query(None),
+    technician_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db)
@@ -32,6 +44,10 @@ def get_delivery_archives(
         query = query.filter(models.DeliveryArchive.receiver.contains(receiver))
     if archiver_id:
         query = query.filter(models.DeliveryArchive.archiver_id == archiver_id)
+    if technician_id:
+        query = query.filter(models.Batch.technician_id == technician_id)
+    if status:
+        query = query.filter(models.Batch.status == status)
     if start_date:
         query = query.filter(models.DeliveryArchive.delivery_time >= start_date)
     if end_date:
@@ -55,6 +71,10 @@ def get_delivery_archives(
             quality_conclusion=archive.quality_conclusion,
             archiver_id=archive.archiver_id,
             archiver_name=archive.archiver.name,
+            technician_id=archive.batch.technician_id,
+            technician_name=archive.batch.technician.name,
+            status=archive.batch.status,
+            status_name=STATUS_MAP.get(archive.batch.status, archive.batch.status),
             created_at=archive.created_at
         )
         result.append(item.model_dump())

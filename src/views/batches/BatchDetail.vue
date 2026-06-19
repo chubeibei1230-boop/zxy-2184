@@ -691,8 +691,12 @@
             v-model="deliveryArchiveForm.quality_conclusion"
             type="textarea"
             :rows="3"
-            placeholder="请输入关联质检结论"
+            placeholder="自动关联最新质检结论"
+            disabled
           />
+          <span style="color: #94a3b8; font-size: 12px;">
+            系统自动关联最新质检结论，不可修改
+          </span>
         </el-form-item>
         <el-form-item label="交付备注" prop="delivery_remark">
           <el-input
@@ -944,7 +948,8 @@ const canDeliveryArchive = computed(() => {
   const status = batchDetail.value.status
   const hasArchive = !!batchDetail.value.delivery_archive
   const isInspector = userStore.userRole === 'inspector' || userStore.userRole === 'admin'
-  return isInspector && status === 'deliverable' && !hasArchive
+  const reviewPassed = batchDetail.value.delivery_review?.pass === true
+  return isInspector && status === 'deliverable' && !hasArchive && reviewPassed
 })
 
 const sortedProcessRecords = computed(() => {
@@ -1086,7 +1091,17 @@ const openDeliveryArchiveDialog = () => {
   deliveryArchiveForm.delivery_time = new Date().toISOString().slice(0, 19).replace('T', ' ')
   deliveryArchiveForm.delivered_quantity = batchDetail.value?.delivery_review?.delivered_quantity ?? batchDetail.value?.quantity ?? null
   deliveryArchiveForm.receiver = ''
-  deliveryArchiveForm.quality_conclusion = batchDetail.value?.delivery_review?.final_quality_conclusion ?? ''
+  
+  const inspectionRecords = batchDetail.value?.inspection_records || []
+  if (inspectionRecords.length > 0) {
+    const sorted = [...inspectionRecords].sort(
+      (a, b) => new Date(b.inspect_time).getTime() - new Date(a.inspect_time).getTime()
+    )
+    deliveryArchiveForm.quality_conclusion = sorted[0].opinion || '无质检结论'
+  } else {
+    deliveryArchiveForm.quality_conclusion = '无质检记录'
+  }
+  
   deliveryArchiveForm.delivery_remark = ''
   deliveryArchiveDialogVisible.value = true
 }

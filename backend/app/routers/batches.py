@@ -370,6 +370,8 @@ def record_delivery_review(
     db.add(review)
 
     batch.review_status = "reviewed"
+    if not record_in.is_pass:
+        batch.status = "reworking"
     db.commit()
 
     return schemas.ApiResponse(message="交付复核完成")
@@ -407,11 +409,19 @@ def record_delivery_archive(
     if batch.delivery_archive:
         raise HTTPException(status_code=400, detail="该批次已完成交付归档，不可重复提交")
 
+    if not batch.delivery_review or not batch.delivery_review.is_pass:
+        raise HTTPException(status_code=400, detail="请先完成交付复核且复核通过后再进行交付归档")
+
     if record_in.delivered_quantity <= 0:
         raise HTTPException(status_code=400, detail="交付数量必须大于0")
 
     if record_in.delivered_quantity > batch.quantity:
         raise HTTPException(status_code=400, detail="交付数量不能超过批次总数量")
+
+    latest_inspection = None
+    if batch.inspection_records:
+        latest_inspection = max(batch.inspection_records, key=lambda x: x.inspect_time)
+    quality_conclusion = latest_inspection.opinion if latest_inspection else "无质检记录"
 
     archive = models.DeliveryArchive(
         batch_id=batch_id,
@@ -420,7 +430,7 @@ def record_delivery_archive(
         delivered_quantity=record_in.delivered_quantity,
         receiver=record_in.receiver,
         delivery_remark=record_in.delivery_remark,
-        quality_conclusion=record_in.quality_conclusion
+        quality_conclusion=quality_conclusion
     )
     db.add(archive)
 

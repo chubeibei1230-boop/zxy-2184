@@ -139,6 +139,10 @@ export interface DeliveryArchiveItem {
   quality_conclusion: string
   archiver_id: number
   archiver_name: string
+  technician_id: number
+  technician_name: string
+  status: BatchStatus
+  status_name: string
   created_at: string
 }
 

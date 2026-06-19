@@ -37,6 +37,16 @@
             <el-option v-for="user in users" :key="user.id" :label="user.name" :value="user.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="责任人">
+          <el-select v-model="filterForm.technician_id" placeholder="全部" clearable @change="loadData" style="width: 120px;">
+            <el-option v-for="user in users" :key="user.id" :label="user.name" :value="user.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="交付状态">
+          <el-select v-model="filterForm.status" placeholder="全部" clearable @change="loadData" style="width: 120px;">
+            <el-option v-for="(label, value) in STATUS_MAP" :key="value" :label="label" :value="value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="交付时间">
           <el-date-picker
             v-model="filterForm.date_range"
@@ -73,6 +83,20 @@
           </el-table-column>
           <el-table-column prop="receiver" label="接收方" width="140" />
           <el-table-column prop="archiver_name" label="归档人" width="100" />
+          <el-table-column prop="technician_name" label="责任人" width="100" />
+          <el-table-column prop="status_name" label="交付状态" width="100">
+            <template #default="{ row }">
+              <span
+                class="status-tag"
+                :style="{
+                  backgroundColor: STATUS_COLOR_MAP[row.status] + '20',
+                  color: STATUS_COLOR_MAP[row.status]
+                }"
+              >
+                {{ row.status_name }}
+              </span>
+            </template>
+          </el-table-column>
           <el-table-column prop="quality_conclusion" label="质检结论" show-overflow-tooltip />
           <el-table-column prop="delivery_remark" label="交付备注" show-overflow-tooltip />
           <el-table-column label="操作" width="120" fixed="right">
@@ -95,7 +119,10 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { RefreshRight } from '@element-plus/icons-vue'
 import { deliveryArchiveApi, styleApi, userApi } from '@/api'
-import type { DeliveryArchiveItem, Style, User } from '@/types'
+import {
+  STATUS_MAP, STATUS_COLOR_MAP,
+  type DeliveryArchiveItem, type Style, type User
+} from '@/types'
 
 const router = useRouter()
 
@@ -109,6 +136,8 @@ const filterForm = reactive({
   style_id: null as number | null,
   receiver: '',
   archiver_id: null as number | null,
+  technician_id: null as number | null,
+  status: null as string | null,
   date_range: null as string[] | null
 })
 
@@ -147,6 +176,8 @@ const getFilterParams = () => {
   if (filterForm.style_id) params.style_id = filterForm.style_id
   if (filterForm.receiver) params.receiver = filterForm.receiver
   if (filterForm.archiver_id) params.archiver_id = filterForm.archiver_id
+  if (filterForm.technician_id) params.technician_id = filterForm.technician_id
+  if (filterForm.status) params.status = filterForm.status
   if (filterForm.date_range?.length === 2) {
     params.start_date = filterForm.date_range[0]
     params.end_date = filterForm.date_range[1]
@@ -172,6 +203,8 @@ const resetFilter = () => {
   filterForm.style_id = null
   filterForm.receiver = ''
   filterForm.archiver_id = null
+  filterForm.technician_id = null
+  filterForm.status = null
   filterForm.date_range = null
   loadData()
 }
@@ -188,4 +221,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.status-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+}
 </style>
