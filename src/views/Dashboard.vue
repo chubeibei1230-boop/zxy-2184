@@ -123,6 +123,19 @@
         </div>
       </el-col>
       <el-col :span="4">
+        <div class="stat-card" @click="goToDeliveryReviews">
+          <div class="stat-content">
+            <div>
+              <div class="stat-value" style="color: #f59e0b;">{{ summary?.pending_delivery_review || 0 }}</div>
+              <div class="stat-label">待交付复核</div>
+            </div>
+            <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+              <el-icon><DocumentChecked /></el-icon>
+            </div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="4">
         <div class="stat-card" @click="goToWarnings">
           <div class="stat-content">
             <div>
@@ -221,6 +234,56 @@
         </div>
       </el-col>
     </el-row>
+
+    <el-row :gutter="20" style="margin-top: 20px;">
+      <el-col :span="24">
+        <div class="card">
+          <div class="card-header">
+            <span>待交付复核列表</span>
+            <el-button type="primary" link @click="goToBatches('deliverable')" style="float: right;">
+              查看全部
+            </el-button>
+          </div>
+          <div class="table-container" style="box-shadow: none;">
+            <el-table :data="pendingDeliveryReviews" style="width: 100%;" stripe>
+              <el-table-column prop="code" label="批次号" width="140" />
+              <el-table-column prop="style_name" label="款式" width="160" />
+              <el-table-column prop="technician_name" label="工艺员" width="100" />
+              <el-table-column prop="inspector_name" label="质检员" width="100">
+                <template #default="{ row }">
+                  {{ row.inspector_name || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="quantity" label="批次数量" width="100" />
+              <el-table-column label="质检完成时间" width="180">
+                <template #default="{ row }">
+                  {{ row.actual_end_date ? formatDate(row.actual_end_date) : '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="待复核天数" width="110">
+                <template #default="{ row }">
+                  <el-tag v-if="row.days_pending >= 3" type="danger" size="small">
+                    {{ row.days_pending }}天
+                  </el-tag>
+                  <el-tag v-else-if="row.days_pending >= 1" type="warning" size="small">
+                    {{ row.days_pending }}天
+                  </el-tag>
+                  <span v-else style="color: #10b981;">当天</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="120" fixed="right">
+                <template #default="{ row }">
+                  <el-button type="primary" link @click="viewBatch(row.id)">
+                    复核
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <el-empty v-if="pendingDeliveryReviews.length === 0" description="暂无待交付复核批次" />
+          </div>
+        </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -230,13 +293,14 @@ import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import {
   Tickets, Timer, Cpu, Search, CircleCheck, Warning,
-  RefreshRight
+  RefreshRight, DocumentChecked
 } from '@element-plus/icons-vue'
 import { dashboardApi, warningApi, styleApi, userApi } from '@/api'
 import {
   WARNING_TYPE_MAP, WARNING_LEVEL_MAP, WARNING_LEVEL_COLOR,
   type DashboardSummary, type WarningItem, type PendingInspectionItem,
-  type BatchProgressItem, type StationLoadItem, type Style, type User
+  type BatchProgressItem, type StationLoadItem, type Style, type User,
+  type PendingDeliveryReviewItem
 } from '@/types'
 
 const router = useRouter()
@@ -250,6 +314,7 @@ let stationChart: echarts.ECharts | null = null
 const summary = ref<DashboardSummary | null>(null)
 const warnings = ref<WarningItem[]>([])
 const pendingInspections = ref<PendingInspectionItem[]>([])
+const pendingDeliveryReviews = ref<PendingDeliveryReviewItem[]>([])
 const batchProgress = ref<BatchProgressItem[]>([])
 const stationLoad = ref<StationLoadItem[]>([])
 const styles = ref<Style[]>([])
@@ -312,11 +377,12 @@ const loadData = async () => {
     const progressParams = { ...params }
     delete progressParams.status
 
-    const [summaryRes, progressRes, stationRes, pendingRes, warningRes] = await Promise.all([
+    const [summaryRes, progressRes, stationRes, pendingRes, reviewRes, warningRes] = await Promise.all([
       dashboardApi.getSummary(params),
       dashboardApi.getBatchProgress(progressParams),
       dashboardApi.getStationLoad(params),
       dashboardApi.getPendingInspections(params),
+      dashboardApi.getPendingDeliveryReviews(params),
       warningApi.getList()
     ])
 
@@ -324,6 +390,7 @@ const loadData = async () => {
     batchProgress.value = progressRes.data.items || []
     stationLoad.value = stationRes.data.items || []
     pendingInspections.value = pendingRes.data.items || []
+    pendingDeliveryReviews.value = reviewRes.data.items || []
     warnings.value = (warningRes.data.items || []).slice(0, 5)
 
     await nextTick()
@@ -461,6 +528,13 @@ const goToBatches = (status?: string) => {
   const query: any = {}
   if (status) query.status = status
   router.push({ path: '/batches', query })
+}
+
+const goToDeliveryReviews = () => {
+  router.push({
+    path: '/batches',
+    query: { status: 'deliverable' }
+  })
 }
 
 const goToWarnings = () => {

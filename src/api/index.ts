@@ -4,7 +4,8 @@ import type {
   Style, WaxBatch, Mold, Station, InspectionCycle,
   Batch, BatchDetail, ProcessRecord, InspectionRecord,
   WarningItem, DashboardSummary, BatchProgressItem,
-  StationLoadItem, PendingInspectionItem
+  StationLoadItem, PendingInspectionItem, DeliveryReview,
+  PendingDeliveryReviewItem
 } from '@/types'
 
 export const authApi = {
@@ -102,7 +103,11 @@ export const batchApi = {
   recordRework: (id: number, data: any) =>
     request.post<any, ApiResponse>(`/batches/${id}/rework`, data),
   recordInspect: (id: number, data: any) =>
-    request.post<any, ApiResponse>(`/batches/${id}/inspect`, data)
+    request.post<any, ApiResponse>(`/batches/${id}/inspect`, data),
+  recordDeliveryReview: (id: number, data: any) =>
+    request.post<any, ApiResponse>(`/batches/${id}/delivery-review`, data),
+  getDeliveryReview: (id: number) =>
+    request.get<any, ApiResponse<DeliveryReview | null>>(`/batches/${id}/delivery-review`)
 }
 
 export const dashboardApi = {
@@ -113,7 +118,9 @@ export const dashboardApi = {
   getStationLoad: (params?: any) =>
     request.get<any, ApiResponse<{ items: StationLoadItem[] }>>('/dashboard/station-load', { params }),
   getPendingInspections: (params?: any) =>
-    request.get<any, ApiResponse<{ items: PendingInspectionItem[] }>>('/dashboard/pending-inspections', { params })
+    request.get<any, ApiResponse<{ items: PendingInspectionItem[] }>>('/dashboard/pending-inspections', { params }),
+  getPendingDeliveryReviews: (params?: any) =>
+    request.get<any, ApiResponse<{ items: PendingDeliveryReviewItem[] }>>('/dashboard/pending-delivery-reviews', { params })
 }
 
 export const warningApi = {
@@ -126,5 +133,7 @@ export const warningApi = {
   getReworkNoConclusion: () =>
     request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/rework-no-conclusion'),
   getPassRateDrop: () =>
-    request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/pass-rate-drop')
+    request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/pass-rate-drop'),
+  getUnreviewedDelivery: () =>
+    request.get<any, ApiResponse<{ items: WarningItem[] }>>('/warnings/unreviewed-delivery')
 }

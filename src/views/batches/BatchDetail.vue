@@ -55,6 +55,20 @@
             </span>
           </div>
           <div class="info-item">
+            <span class="label">复核状态：</span>
+            <span
+              v-if="batchDetail.review_status"
+              class="status-tag"
+              :style="{
+                backgroundColor: (batchDetail.review_status_color || REVIEW_STATUS_COLOR_MAP[batchDetail.review_status]) + '20',
+                color: batchDetail.review_status_color || REVIEW_STATUS_COLOR_MAP[batchDetail.review_status]
+              }"
+            >
+              {{ batchDetail.review_status_name || REVIEW_STATUS_MAP[batchDetail.review_status] }}
+            </span>
+            <span v-else class="value">-</span>
+          </div>
+          <div class="info-item">
             <span class="label">计划开始：</span>
             <span class="value">{{ batchDetail.planned_start_date }}</span>
           </div>
@@ -130,6 +144,14 @@
         >
           质检
         </el-button>
+        <el-button
+          v-if="canDeliveryReview"
+          type="warning"
+          :icon="DocumentChecked"
+          @click="openDeliveryReviewDialog"
+        >
+          交付复核
+        </el-button>
       </div>
 
       <div class="card timeline-card">
@@ -197,6 +219,49 @@
             <el-table-column prop="opinion" label="质检意见" />
           </el-table>
           <el-empty v-if="!batchDetail?.inspection_records?.length" description="暂无质检记录" />
+        </div>
+      </div>
+
+      <div class="card delivery-review-card" v-if="batchDetail">
+        <div class="card-header">
+          <span>交付复核信息</span>
+        </div>
+        <div v-if="batchDetail.delivery_review" class="review-info">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="label">复核时间：</span>
+              <span class="value">{{ formatDateTime(batchDetail.delivery_review.review_time) }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">复核人：</span>
+              <span class="value">{{ batchDetail.delivery_review.reviewer?.name || '-' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">交付数量：</span>
+              <span class="value">{{ batchDetail.delivery_review.delivered_quantity }} / {{ batchDetail.quantity }} 件</span>
+            </div>
+            <div class="info-item">
+              <span class="label">复核结论：</span>
+              <span>
+                <el-tag v-if="batchDetail.delivery_review.pass" type="success" size="small">通过</el-tag>
+                <el-tag v-else type="danger" size="small">不通过</el-tag>
+              </span>
+            </div>
+            <div class="info-item full-width">
+              <span class="label">最终质量结论：</span>
+              <span class="value">{{ batchDetail.delivery_review.final_quality_conclusion || '-' }}</span>
+            </div>
+            <div class="info-item full-width" v-if="batchDetail.delivery_review.exception_remark">
+              <span class="label">异常备注：</span>
+              <span class="value">{{ batchDetail.delivery_review.exception_remark }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="batchDetail.review_status === 'pending_review'" class="review-empty">
+          <el-empty description="待交付复核，请点击上方【交付复核】按钮进行操作" />
+        </div>
+        <div v-else class="review-empty">
+          <el-empty description="暂无交付复核信息" />
         </div>
       </div>
     </div>
@@ -473,6 +538,67 @@
         <el-button type="primary" @click="handleInspect" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="deliveryReviewDialogVisible"
+      title="交付复核"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="deliveryReviewFormRef"
+        :model="deliveryReviewForm"
+        :rules="deliveryReviewRules"
+        label-width="110px"
+      >
+        <el-form-item label="复核时间" prop="review_time">
+          <el-date-picker
+            v-model="deliveryReviewForm.review_time"
+            type="datetime"
+            placeholder="选择时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%;"
+          />
+        </el-form-item>
+        <el-form-item label="交付数量" prop="delivered_quantity">
+          <el-input-number
+            v-model="deliveryReviewForm.delivered_quantity"
+            :min="1"
+            :max="batchDetail?.quantity || 10000"
+            style="width: 100%;"
+          />
+          <span style="color: #94a3b8; font-size: 12px;">
+            批次总数量：{{ batchDetail?.quantity || '-' }} 件，交付数量不能超过总数量
+          </span>
+        </el-form-item>
+        <el-form-item label="最终质量结论" prop="final_quality_conclusion">
+          <el-input
+            v-model="deliveryReviewForm.final_quality_conclusion"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入最终质量结论"
+          />
+        </el-form-item>
+        <el-form-item label="复核结论" prop="pass">
+          <el-radio-group v-model="deliveryReviewForm.pass">
+            <el-radio :value="true">通过</el-radio>
+            <el-radio :value="false">不通过</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="异常备注" prop="exception_remark">
+          <el-input
+            v-model="deliveryReviewForm.exception_remark"
+            type="textarea"
+            :rows="2"
+            placeholder="有异常情况请备注，无异常可留空"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="deliveryReviewDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleDeliveryReview" :loading="submitting">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -482,11 +608,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import {
   ArrowLeft, RefreshRight, Watermelon, Box, Crop,
-  Warning, RefreshLeft, CircleCheck
+  Warning, RefreshLeft, CircleCheck, DocumentChecked
 } from '@element-plus/icons-vue'
 import { batchApi } from '@/api'
 import {
   STATUS_MAP, STATUS_COLOR_MAP,
+  REVIEW_STATUS_MAP, REVIEW_STATUS_COLOR_MAP,
   type BatchDetail, type ProcessRecord
 } from '@/types'
 import { useUserStore } from '@/stores/user'
@@ -506,6 +633,7 @@ const trimDialogVisible = ref(false)
 const bubbleDialogVisible = ref(false)
 const reworkDialogVisible = ref(false)
 const inspectDialogVisible = ref(false)
+const deliveryReviewDialogVisible = ref(false)
 
 const pourFormRef = ref<FormInstance>()
 const demoldFormRef = ref<FormInstance>()
@@ -513,6 +641,7 @@ const trimFormRef = ref<FormInstance>()
 const bubbleFormRef = ref<FormInstance>()
 const reworkFormRef = ref<FormInstance>()
 const inspectFormRef = ref<FormInstance>()
+const deliveryReviewFormRef = ref<FormInstance>()
 
 const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
 
@@ -558,6 +687,14 @@ const inspectForm = reactive({
   opinion: ''
 })
 
+const deliveryReviewForm = reactive({
+  review_time: now,
+  delivered_quantity: null as number | null,
+  final_quality_conclusion: '',
+  pass: true,
+  exception_remark: ''
+})
+
 const pourRules: FormRules = {
   record_time: [{ required: true, message: '请选择浇注时间', trigger: 'change' }],
   temperature: [{ required: true, message: '请输入温度', trigger: 'blur' }],
@@ -593,6 +730,25 @@ const inspectRules: FormRules = {
   surface_flatness: [{ required: true, message: '请输入表面平面度', trigger: 'blur' }],
   pass: [{ required: true, message: '请选择是否通过', trigger: 'change' }],
   opinion: [{ required: true, message: '请输入质检意见', trigger: 'blur' }]
+}
+
+const deliveryReviewRules: FormRules = {
+  review_time: [{ required: true, message: '请选择复核时间', trigger: 'change' }],
+  delivered_quantity: [
+    { required: true, message: '请输入交付数量', trigger: 'blur' },
+    {
+      validator: (_rule, value, callback) => {
+        if (value !== null && value !== undefined && batchDetail.value && value > batchDetail.value.quantity) {
+          callback(new Error('交付数量不能超过批次总数量'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  final_quality_conclusion: [{ required: true, message: '请输入最终质量结论', trigger: 'blur' }],
+  pass: [{ required: true, message: '请选择复核结论', trigger: 'change' }]
 }
 
 const canPour = computed(() => {
@@ -635,6 +791,14 @@ const canInspect = computed(() => {
   const status = batchDetail.value.status
   const isInspector = userStore.userRole === 'inspector' || userStore.userRole === 'admin'
   return isInspector && status === 'pending_inspect'
+})
+
+const canDeliveryReview = computed(() => {
+  if (!batchDetail.value) return false
+  const status = batchDetail.value.status
+  const reviewStatus = batchDetail.value.review_status
+  const isInspector = userStore.userRole === 'inspector' || userStore.userRole === 'admin'
+  return isInspector && status === 'deliverable' && reviewStatus === 'pending_review'
 })
 
 const sortedProcessRecords = computed(() => {
@@ -761,6 +925,16 @@ const openInspectDialog = () => {
   inspectDialogVisible.value = true
 }
 
+const openDeliveryReviewDialog = () => {
+  deliveryReviewFormRef.value?.resetFields()
+  deliveryReviewForm.review_time = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  deliveryReviewForm.delivered_quantity = batchDetail.value?.quantity ?? null
+  deliveryReviewForm.final_quality_conclusion = ''
+  deliveryReviewForm.pass = true
+  deliveryReviewForm.exception_remark = ''
+  deliveryReviewDialogVisible.value = true
+}
+
 const handlePour = async () => {
   if (!pourFormRef.value) return
   await pourFormRef.value.validate(async (valid) => {
@@ -878,6 +1052,25 @@ const handleInspect = async () => {
   })
 }
 
+const handleDeliveryReview = async () => {
+  if (!deliveryReviewFormRef.value) return
+  await deliveryReviewFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    submitting.value = true
+    try {
+      await batchApi.recordDeliveryReview(batchId.value, deliveryReviewForm)
+      ElMessage.success('交付复核完成')
+      deliveryReviewDialogVisible.value = false
+      loadDetail()
+    } catch (e: any) {
+      console.error('Record delivery review failed', e)
+      ElMessage.error(e.response?.data?.message || '保存交付复核失败')
+    } finally {
+      submitting.value = false
+    }
+  })
+}
+
 onMounted(() => {
   loadDetail()
 })
@@ -964,5 +1157,19 @@ onMounted(() => {
 
 .inspection-card {
   margin-bottom: 20px;
+}
+
+.delivery-review-card .review-info .info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.delivery-review-card .review-info .info-item.full-width {
+  grid-column: span 2;
+}
+
+.review-empty {
+  padding: 20px 0;
 }
 </style>

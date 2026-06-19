@@ -35,11 +35,13 @@ def record_inspection(
     if record_in.is_pass:
         batch.status = "deliverable"
         batch.actual_end_date = record_in.inspect_time
+        batch.review_status = "pending_review"
     else:
         batch.status = "reworking"
+        batch.review_status = "not_required"
 
     batch.inspector_id = current_user.id
     db.commit()
 
-    message = "质检通过，批次已进入可交付状态" if record_in.is_pass else "质检未通过，批次进入返工状态"
+    message = "质检通过，批次已进入可交付状态，待交付复核" if record_in.is_pass else "质检未通过，批次进入返工状态"
     return schemas.ApiResponse(message=message)

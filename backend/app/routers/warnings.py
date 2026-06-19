@@ -16,11 +16,42 @@ def get_all_warnings_internal(db: Session) -> list:
     overdue_warnings = check_overdue_inspection(db)
     rework_warnings = check_rework_no_conclusion(db)
     pass_rate_warnings = check_pass_rate_drop(db)
+    unreviewed_warnings = check_unreviewed_delivery(db)
 
     warnings.extend(bubble_warnings)
     warnings.extend(overdue_warnings)
     warnings.extend(rework_warnings)
     warnings.extend(pass_rate_warnings)
+    warnings.extend(unreviewed_warnings)
+
+    return warnings
+
+
+def check_unreviewed_delivery(db: Session) -> list:
+    warnings = []
+    threshold_days = 3
+    now = datetime.now().date()
+
+    pending_batches = db.query(models.Batch).filter(
+        models.Batch.status == "deliverable",
+        models.Batch.review_status == "pending_review"
+    ).all()
+
+    for batch in pending_batches:
+        base_date = batch.actual_end_date.date() if batch.actual_end_date else batch.created_at.date()
+        days_since = (now - base_date).days
+
+        if days_since > threshold_days:
+            overdue_days = days_since - threshold_days
+            warnings.append(schemas.WarningItem(
+                type="unreviewed_delivery",
+                level="high" if overdue_days >= 7 else "medium",
+                title=f"批次【{batch.code}】待交付复核超期",
+                content=f"已超期 {overdue_days} 天未完成交付复核，超过阈值 {threshold_days} 天",
+                related_id=batch.id,
+                related_type="batch",
+                created_at=datetime.now()
+            ).model_dump())
 
     return warnings
 
@@ -194,4 +225,10 @@ def get_rework_no_conclusion_warnings(db: Session = Depends(get_db)):
 @router.get("/pass-rate-drop", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
 def get_pass_rate_drop_warnings(db: Session = Depends(get_db)):
     warnings = check_pass_rate_drop(db)
+    return schemas.ApiResponse(data={"items": warnings})
+
+
+@router.get("/unreviewed-delivery", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
+def get_unreviewed_delivery_warnings(db: Session = Depends(get_db)):
+    warnings = check_unreviewed_delivery(db)
     return schemas.ApiResponse(data={"items": warnings})

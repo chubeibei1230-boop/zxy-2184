@@ -17,6 +17,18 @@ STATUS_MAP = {
     "paused": "暂停"
 }
 
+REVIEW_STATUS_MAP = {
+    "not_required": "无需复核",
+    "pending_review": "待交付复核",
+    "reviewed": "已复核"
+}
+
+REVIEW_STATUS_COLOR_MAP = {
+    "not_required": "#6b7280",
+    "pending_review": "#f59e0b",
+    "reviewed": "#10b981"
+}
+
 
 def check_mold_availability(db: Session, mold_id: int, start_date: date, end_date: date, exclude_batch_id: Optional[int] = None) -> bool:
     overlapping = db.query(models.Batch).filter(
@@ -67,6 +79,8 @@ def get_batches(
         batch_data["technician_name"] = batch.technician.name
         batch_data["inspector_name"] = batch.inspector.name if batch.inspector else None
         batch_data["status_name"] = STATUS_MAP.get(batch.status, batch.status)
+        batch_data["review_status_name"] = REVIEW_STATUS_MAP.get(batch.review_status, batch.review_status)
+        batch_data["review_status_color"] = REVIEW_STATUS_COLOR_MAP.get(batch.review_status, "#6b7280")
         result.append(batch_data)
 
     return schemas.ApiResponse(data={"items": result})
@@ -80,6 +94,8 @@ def get_batch_detail(batch_id: int, db: Session = Depends(get_db)):
 
     batch_data = schemas.BatchDetail.model_validate(batch).model_dump()
     batch_data["status_name"] = STATUS_MAP.get(batch.status, batch.status)
+    batch_data["review_status_name"] = REVIEW_STATUS_MAP.get(batch.review_status, batch.review_status)
+    batch_data["review_status_color"] = REVIEW_STATUS_COLOR_MAP.get(batch.review_status, "#6b7280")
 
     process_records = []
     for pr in batch.process_records:
@@ -92,6 +108,10 @@ def get_batch_detail(batch_id: int, db: Session = Depends(get_db)):
         ir_data = schemas.InspectionRecordWithInspector.model_validate(ir).model_dump(by_alias=True)
         inspection_records.append(ir_data)
     batch_data["inspection_records"] = inspection_records
+
+    if batch.delivery_review:
+        dr_data = schemas.DeliveryReviewWithReviewer.model_validate(batch.delivery_review).model_dump(by_alias=True)
+        batch_data["delivery_review"] = dr_data
 
     return schemas.ApiResponse(data=batch_data)
 
@@ -286,3 +306,65 @@ def record_rework(
     db.commit()
 
     return schemas.ApiResponse(message="返工完成，批次重新进入待质检状态")
+
+
+@router.post("/{batch_id}/delivery-review", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_inspector)])
+def record_delivery_review(
+    batch_id: int,
+    record_in: schemas.DeliveryReviewCreate,
+    current_user: models.User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    batch = db.query(models.Batch).filter(models.Batch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="批次不存在")
+
+    if batch.status != "deliverable":
+        raise HTTPException(status_code=400, detail="当前状态不允许交付复核")
+
+    if batch.review_status == "reviewed":
+        raise HTTPException(status_code=400, detail="该批次已完成交付复核，不可重复提交")
+
+    if record_in.delivered_quantity <= 0:
+        raise HTTPException(status_code=400, detail="交付数量必须大于0")
+
+    if record_in.delivered_quantity > batch.quantity:
+        raise HTTPException(status_code=400, detail="交付数量不能超过批次总数量")
+
+    existing_review = db.query(models.DeliveryReview).filter(
+        models.DeliveryReview.batch_id == batch_id
+    ).first()
+    if existing_review:
+        db.delete(existing_review)
+        db.flush()
+
+    review = models.DeliveryReview(
+        batch_id=batch_id,
+        reviewer_id=current_user.id,
+        review_time=record_in.review_time,
+        delivered_quantity=record_in.delivered_quantity,
+        final_quality_conclusion=record_in.final_quality_conclusion,
+        is_pass=record_in.is_pass,
+        exception_remark=record_in.exception_remark
+    )
+    db.add(review)
+
+    batch.review_status = "reviewed"
+    db.commit()
+
+    return schemas.ApiResponse(message="交付复核完成")
+
+
+@router.get("/{batch_id}/delivery-review", response_model=schemas.ApiResponse, dependencies=[Depends(auth.allow_all)])
+def get_delivery_review(batch_id: int, db: Session = Depends(get_db)):
+    batch = db.query(models.Batch).filter(models.Batch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="批次不存在")
+
+    if not batch.delivery_review:
+        return schemas.ApiResponse(data=None)
+
+    review_data = schemas.DeliveryReviewWithReviewer.model_validate(
+        batch.delivery_review
+    ).model_dump(by_alias=True)
+    return schemas.ApiResponse(data=review_data)

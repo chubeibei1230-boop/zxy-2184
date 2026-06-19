@@ -194,10 +194,40 @@ class BatchUpdateStatus(BaseModel):
 class Batch(BatchBase):
     id: int
     status: str
+    review_status: str = "not_required"
     actual_start_date: Optional[datetime] = None
     actual_end_date: Optional[datetime] = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+class DeliveryReviewBase(BaseModel):
+    review_time: datetime
+    delivered_quantity: int
+    final_quality_conclusion: str
+    is_pass: bool = Field(alias="pass")
+    exception_remark: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class DeliveryReviewCreate(BaseModel):
+    review_time: datetime
+    delivered_quantity: int
+    final_quality_conclusion: str
+    is_pass: bool = Field(alias="pass")
+    exception_remark: Optional[str] = None
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DeliveryReview(DeliveryReviewBase):
+    id: int
+    batch_id: int
+    reviewer_id: int
+    created_at: datetime
+
+
+class DeliveryReviewWithReviewer(DeliveryReview):
+    reviewer: User
 
 
 class BatchDetail(Batch):
@@ -209,6 +239,7 @@ class BatchDetail(Batch):
     inspector: Optional[User] = None
     process_records: List["ProcessRecord"] = []
     inspection_records: List["InspectionRecord"] = []
+    delivery_review: Optional[DeliveryReviewWithReviewer] = None
 
 
 class ProcessRecordBase(BaseModel):
@@ -323,6 +354,7 @@ class DashboardSummary(BaseModel):
     reworking: int
     deliverable: int
     paused: int
+    pending_delivery_review: int
     warning_count: int
 
 
@@ -351,3 +383,14 @@ class PendingInspectionItem(BaseModel):
     technician_name: str
     created_at: datetime
     days_overdue: int
+
+
+class PendingDeliveryReviewItem(BaseModel):
+    id: int
+    code: str
+    style_name: str
+    technician_name: str
+    inspector_name: Optional[str] = None
+    quantity: int
+    actual_end_date: Optional[datetime] = None
+    days_pending: int

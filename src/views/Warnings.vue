@@ -15,6 +15,7 @@
             <el-option label="质检超期" value="overdue_inspection" />
             <el-option label="返工无结论" value="rework_no_conclusion" />
             <el-option label="通过率下降" value="pass_rate_drop" />
+            <el-option label="待复核超期" value="unreviewed_delivery" />
           </el-select>
         </el-form-item>
         <el-form-item label="预警级别">
@@ -119,7 +120,8 @@ const getTypeTagType = (type: string) => {
     bubble_concentration: 'danger',
     overdue_inspection: 'warning',
     rework_no_conclusion: 'danger',
-    pass_rate_drop: 'warning'
+    pass_rate_drop: 'warning',
+    unreviewed_delivery: 'danger'
   }
   return typeMap[type] || 'info'
 }

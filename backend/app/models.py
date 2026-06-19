@@ -113,6 +113,7 @@ class Batch(Base):
     technician_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     inspector_id = Column(Integer, ForeignKey("users.id"))
     status = Column(String(20), nullable=False, default="pending_pour")
+    review_status = Column(String(20), nullable=False, default="not_required")
     planned_start_date = Column(Date, nullable=False)
     planned_end_date = Column(Date, nullable=False)
     actual_start_date = Column(DateTime)
@@ -123,6 +124,7 @@ class Batch(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('pending_pour', 'molding', 'pending_inspect', 'reworking', 'deliverable', 'paused')"),
+        CheckConstraint("review_status IN ('not_required', 'pending_review', 'reviewed')"),
     )
 
     style = relationship("Style", back_populates="batches")
@@ -133,6 +135,7 @@ class Batch(Base):
     inspector = relationship("User", foreign_keys=[inspector_id], back_populates="inspector_batches")
     process_records = relationship("ProcessRecord", back_populates="batch", cascade="all, delete-orphan")
     inspection_records = relationship("InspectionRecord", back_populates="batch", cascade="all, delete-orphan")
+    delivery_review = relationship("DeliveryReview", back_populates="batch", uselist=False, cascade="all, delete-orphan")
 
 
 class ProcessRecord(Base):
@@ -177,3 +180,20 @@ class InspectionRecord(Base):
 
     batch = relationship("Batch", back_populates="inspection_records")
     inspector = relationship("User", back_populates="inspection_records")
+
+
+class DeliveryReview(Base):
+    __tablename__ = "delivery_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("batches.id"), nullable=False, unique=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    review_time = Column(DateTime, nullable=False)
+    delivered_quantity = Column(Integer, nullable=False)
+    final_quality_conclusion = Column(String(500), nullable=False)
+    is_pass = Column(Boolean, nullable=False)
+    exception_remark = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+
+    batch = relationship("Batch", back_populates="delivery_review")
+    reviewer = relationship("User")

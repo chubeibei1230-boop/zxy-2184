@@ -70,6 +70,7 @@ export interface InspectionCycle {
 }
 
 export type BatchStatus = 'pending_pour' | 'molding' | 'pending_inspect' | 'reworking' | 'deliverable' | 'paused'
+export type ReviewStatus = 'not_required' | 'pending_review' | 'reviewed'
 
 export interface Batch {
   id: number
@@ -81,6 +82,7 @@ export interface Batch {
   technician_id: number
   inspector_id: number | null
   status: BatchStatus
+  review_status: ReviewStatus
   planned_start_date: string
   planned_end_date: string
   actual_start_date: string | null
@@ -92,6 +94,21 @@ export interface Batch {
   technician_name?: string
   inspector_name?: string
   status_name?: string
+  review_status_name?: string
+  review_status_color?: string
+}
+
+export interface DeliveryReview {
+  id: number
+  batch_id: number
+  reviewer_id: number
+  review_time: string
+  delivered_quantity: number
+  final_quality_conclusion: string
+  pass: boolean
+  exception_remark: string | null
+  created_at: string
+  reviewer?: User
 }
 
 export interface BatchDetail extends Batch {
@@ -103,6 +120,7 @@ export interface BatchDetail extends Batch {
   inspector?: User
   process_records: ProcessRecord[]
   inspection_records: InspectionRecord[]
+  delivery_review?: DeliveryReview | null
 }
 
 export interface ProcessRecord {
@@ -138,7 +156,7 @@ export interface InspectionRecord {
 }
 
 export interface WarningItem {
-  type: 'bubble_concentration' | 'overdue_inspection' | 'rework_no_conclusion' | 'pass_rate_drop'
+  type: 'bubble_concentration' | 'overdue_inspection' | 'rework_no_conclusion' | 'pass_rate_drop' | 'unreviewed_delivery'
   level: 'low' | 'medium' | 'high'
   title: string
   content: string
@@ -155,7 +173,19 @@ export interface DashboardSummary {
   reworking: number
   deliverable: number
   paused: number
+  pending_delivery_review: number
   warning_count: number
+}
+
+export interface PendingDeliveryReviewItem {
+  id: number
+  code: string
+  style_name: string
+  technician_name: string
+  inspector_name: string | null
+  quantity: number
+  actual_end_date: string | null
+  days_pending: number
 }
 
 export interface BatchProgressItem {
@@ -216,11 +246,24 @@ export const STATION_TYPE_MAP: Record<string, string> = {
   inspect: '质检台'
 }
 
+export const REVIEW_STATUS_MAP: Record<ReviewStatus, string> = {
+  not_required: '无需复核',
+  pending_review: '待交付复核',
+  reviewed: '已复核'
+}
+
+export const REVIEW_STATUS_COLOR_MAP: Record<ReviewStatus, string> = {
+  not_required: '#6b7280',
+  pending_review: '#f59e0b',
+  reviewed: '#10b981'
+}
+
 export const WARNING_TYPE_MAP: Record<string, string> = {
   bubble_concentration: '气泡集中',
   overdue_inspection: '质检超期',
   rework_no_conclusion: '返工无结论',
-  pass_rate_drop: '通过率下降'
+  pass_rate_drop: '通过率下降',
+  unreviewed_delivery: '待复核超期'
 }
 
 export const WARNING_LEVEL_MAP: Record<string, string> = {

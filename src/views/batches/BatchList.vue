@@ -80,6 +80,19 @@
             </span>
           </template>
         </el-table-column>
+        <el-table-column prop="review_status" label="复核状态" width="120">
+          <template #default="{ row }">
+            <span
+              class="status-tag"
+              :style="{
+                backgroundColor: (row.review_status_color || REVIEW_STATUS_COLOR_MAP[row.review_status]) + '20',
+                color: row.review_status_color || REVIEW_STATUS_COLOR_MAP[row.review_status]
+              }"
+            >
+              {{ row.review_status_name || REVIEW_STATUS_MAP[row.review_status] }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="planned_start_date" label="计划开始" width="120" />
         <el-table-column prop="planned_end_date" label="计划结束" width="120" />
         <el-table-column prop="quantity" label="数量" width="80" />
@@ -190,6 +203,7 @@ import {
 } from '@/api'
 import {
   STATUS_MAP, STATUS_COLOR_MAP,
+  REVIEW_STATUS_MAP, REVIEW_STATUS_COLOR_MAP,
   type Batch, type Style, type WaxBatch, type Mold, type Station, type User
 } from '@/types'
 import { useUserStore } from '@/stores/user'
